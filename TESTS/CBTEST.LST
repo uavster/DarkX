@@ -1,0 +1,134 @@
+Turbo Assembler	 Version 3.1	    19/11/98 12:27:55	    Page 1
+cbtest.ASM
+
+
+
+      1					 .386p
+      2	00000000			 .model	flat
+      3	00000000			 .stack	100h
+      4	00000000			 .code
+      5	00000000			 Trm_reg	 STRUC
+      6	00000000  01*(????????)			 rm_edi		 dd ?
+      7	00000004  01*(????????)			 rm_esi		 dd ?
+      8	00000008  01*(????????)			 rm_ebp		 dd ?
+      9	0000000C  01*(????????)					 dd ?
+     10	00000010  01*(????????)			 rm_ebx		 dd ?
+     11	00000014  01*(????????)			 rm_edx		 dd ?
+     12	00000018  01*(????????)			 rm_ecx		 dd ?
+     13	0000001C  01*(????????)			 rm_eax		 dd ?
+     14	00000020  01*(????)			 rm_flags	 dw ?
+     15	00000022  01*(????)			 rm_es		 dw ?
+     16	00000024  01*(????)			 rm_ds		 dw ?
+     17	00000026  01*(????)			 rm_fs		 dw ?
+     18	00000028  01*(????)			 rm_gs		 dw ?
+     19	0000002A  01*(????)			 rm_ip		 dw ?
+     20	0000002C  01*(????)			 rm_cs		 dw ?
+     21	0000002E  01*(????)			 rm_sp		 dw ?
+     22	00000030  01*(????)			 rm_ss		 dw ?
+     23	00000032			 ENDS
+     24					 ;	  INCLUDE utils.inc
+     25
+     26	00000000  EB 06			 start:	 jmp short main
+     27	00000002  57 41	54 43 4F 4D		 db "WATCOM"
+     28	00000008			 main:
+     29					 ;	  InitDPMI
+     30	00000008  1E				 push	 ds
+     31	00000009  07				 pop	 es
+     32	0000000A  0E				 push	 cs
+     33	0000000B  1F				 pop	 ds
+     34	0000000C  66| B8 0303			 mov	 ax,303h
+     35	00000010  BE 00000030r			 mov	 esi,offset proctocall
+     36	00000015  BF 00000001r			 mov	 edi,offset rmcallstruc
+     37	0000001A  CD 31				 int	 31h
+     38	0000001C  72 0E	90 90 90 90		 jc	 exit_from_here
+     39	00000022  66| B8 0201			 mov	 ax,201h
+     40	00000026  B3 80				 mov	 bl,80h
+     41	00000028  CD 31				 int	 31h
+     42	0000002A  CD 80				 int	 80h
+     43
+     44					 ;	  Exit
+     45	0000002C				 exit_from_here:
+     46	0000002C  B4 4C				 mov	 ah,4Ch
+     47	0000002E  CD 21				 int	 21h
+     48
+     49	00000030			 proctocall:
+     50	00000030  A0 00000000r			 mov	 al,hihi
+     51	00000035  B4 36				 mov	 ah,36h
+     52	00000037  66| A3 000B8280		 mov	 ds:[0b8000h+4*160],ax
+     53	0000003D  FE C0				 inc	 al
+     54	0000003F  3C 3A				 cmp	 al,3Ah
+     55	00000041  75 06	90 90 90 90		 jnz	 nada
+     56	00000047  B0 30					 mov	 al,30h
+     57	00000049				 nada:
+Turbo Assembler	 Version 3.1	    19/11/98 12:27:55	    Page 2
+cbtest.ASM
+
+
+
+     58	00000049  A2 00000000r			 mov	 hihi,al
+     59	0000004E  CF				 iretd
+     60
+     61	0000004F			 .data
+     62	00000000  30			 hihi		 db 30h
+     63	00000001  64*(????????)		 rmcallstruc	 dd 100	dup(?)
+     64					 end start
+Turbo Assembler	 Version 3.1	    19/11/98 12:27:55	    Page 3
+Symbol Table
+
+
+
+
+Symbol Name			  Type	 Value
+
+??DATE				  Text	 "19/11/98"
+??FILENAME			  Text	 "cbtest  "
+??TIME				  Text	 "12:27:55"
+??VERSION			  Number 030A
+@32BIT				  Text	 1
+@CODE				  Text	 FLAT
+@CODESIZE			  Text	 0
+@CPU				  Text	 0F8FH
+@CURSEG				  Text	 _DATA
+@DATA				  Text	 FLAT
+@DATASIZE			  Text	 0
+@FILENAME			  Text	 CBTEST
+@INTERFACE			  Text	 00H
+@MODEL				  Text	 1
+@STACK				  Text	 FLAT
+@WORDSIZE			  Text	 4
+EXIT_FROM_HERE			  Near	 FLAT:002C
+HIHI				  Byte	 FLAT:0000
+MAIN				  Near	 FLAT:0008
+NADA				  Near	 FLAT:0049
+PROCTOCALL			  Near	 FLAT:0030
+RMCALLSTRUC			  Dword	 FLAT:0001
+START				  Near	 FLAT:0000
+
+Structure Name			  Type	Offset
+
+TRM_REG
+ RM_EDI				  Dword	 0000
+ RM_ESI				  Dword	 0004
+ RM_EBP				  Dword	 0008
+ RM_EBX				  Dword	 0010
+ RM_EDX				  Dword	 0014
+ RM_ECX				  Dword	 0018
+ RM_EAX				  Dword	 001C
+ RM_FLAGS			  Word	 0020
+ RM_ES				  Word	 0022
+ RM_DS				  Word	 0024
+ RM_FS				  Word	 0026
+ RM_GS				  Word	 0028
+ RM_IP				  Word	 002A
+ RM_CS				  Word	 002C
+ RM_SP				  Word	 002E
+ RM_SS				  Word	 0030
+
+Groups & Segments		  Bit Size Align  Combine Class
+
+DGROUP				  Group
+  STACK				  32  0100 Para	  Stack	  STACK
+  _DATA				  32  0191 Dword  Public  DATA
+FLAT				  Group
+_TEXT				  32  004F Dword  Public  CODE
+

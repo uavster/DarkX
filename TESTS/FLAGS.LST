@@ -1,0 +1,68 @@
+Turbo Assembler	 Version 4.0	    15/10/98 04:49:11	    Page 1
+flags.ASM
+
+
+
+      1					 .386p
+      2					 ;pila segment stack 'stack' use16
+      3					 ;db 100h dup(?)
+      4					 ;pila ends
+      5	00000000			 .model	flat
+      6	00000000			 .stack	100h
+      7	00000000			 .code
+      8					 ;code segment para use16
+      9					 ;assume  cs:code,ds:code,ss:pila
+     10	00000000			 start:
+     11	00000000  FA			 cli
+     12	00000001  B8 11111111			 mov	 eax,11111111h	 ; EFLAGS
+     13	00000006  50				 push	 eax
+     14	00000007  B8 00001234			 mov	 eax,1234h	 ; CS
+     15	0000000C  50				 push	 eax
+     16	0000000D  B8 87654321			 mov	 eax,87654321h	 ; EIP
+     17	00000012  50				 push	 eax
+     18
+     19	00000013  66| FF 35 00000025r		 push word ptr hola
+     20	0000001A  66| 8F 44 24 08		 pop word ptr ss:[esp+4*2]
+     21	0000001F  CC				 int 3
+     22	00000020  FB			 sti
+     23	00000021  B4 4C				 mov ah,4ch
+     24	00000023  CD 21				 int 21h
+     25	00000025  CAFE			 hola	 dw 0CAFEh
+     26					 ;code ends
+     27
+     28					 end start
+Turbo Assembler	 Version 4.0	    15/10/98 04:49:11	    Page 2
+Symbol Table
+
+
+
+
+Symbol Name			  Type	 Value
+
+??DATE				  Text	 "15/10/98"
+??FILENAME			  Text	 "flags	  "
+??TIME				  Text	 "04:49:11"
+??VERSION			  Number 0400
+@32BIT				  Text	 1
+@CODE				  Text	 FLAT
+@CODESIZE			  Text	 0
+@CPU				  Text	 0F8FH
+@CURSEG				  Text	 _TEXT
+@DATA				  Text	 FLAT
+@DATASIZE			  Text	 0
+@FILENAME			  Text	 FLAGS
+@INTERFACE			  Text	 00H
+@MODEL				  Text	 1
+@STACK				  Text	 FLAT
+@WORDSIZE			  Text	 4
+HOLA				  Word	 FLAT:0025
+START				  Near	 FLAT:0000
+
+Groups & Segments		  Bit Size Align  Combine Class
+
+DGROUP				  Group
+  STACK				  32  0100 Para	  Stack	  STACK
+  _DATA				  32  0000 Dword  Public  DATA
+FLAT				  Group
+_TEXT				  32  0027 Dword  Public  CODE
+

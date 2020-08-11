@@ -1,0 +1,7 @@
+excs32.inc Gesti¢n de excepciones en PM
+ints32.inc Gesti¢n de interrupciones en PM
+ints16.inc Llamada interrupciones 16 bits desde PM
+vcpi.inc Rutinas para sistema VCPI
+dpmi.inc Rutinas para sistema DPMI
+raw_xms.inc Rutinas para sistema RAW/XMS
+gdt.inc Global Decriptor Table

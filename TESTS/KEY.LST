@@ -1,0 +1,57 @@
+Turbo Assembler	 Version 4.0	    15/10/98 06:53:18	    Page 1
+key.ASM
+
+
+
+      1					 .386p
+      2	00000000			 .model	flat
+      3	00000000			 .stack	100h
+      4	00000000			 .code
+      5	00000000  66| B8 0010			 mov	 ax,10h
+      6	00000004  8E E8				 mov	 gs,ax
+      7	00000006  8E E0				 mov	 fs,ax
+      8	00000008			 start:
+      9					 ;	  int 3
+     10	00000008  90				 nop
+     11	00000009  B4 01				 mov ah,1
+     12	0000000B  CD 16				 int 16h
+     13	0000000D  74 F9				 jz start
+     14	0000000F  32 E4				 xor ah,ah
+     15	00000011  CD 16				 int 16h
+     16	00000013  B4 4C				 mov ah,4Ch
+     17	00000015  CD 21				 int 21h
+     18					 end start
+Turbo Assembler	 Version 4.0	    15/10/98 06:53:18	    Page 2
+Symbol Table
+
+
+
+
+Symbol Name			  Type	 Value
+
+??DATE				  Text	 "15/10/98"
+??FILENAME			  Text	 "key	  "
+??TIME				  Text	 "06:53:18"
+??VERSION			  Number 0400
+@32BIT				  Text	 1
+@CODE				  Text	 FLAT
+@CODESIZE			  Text	 0
+@CPU				  Text	 0F8FH
+@CURSEG				  Text	 _TEXT
+@DATA				  Text	 FLAT
+@DATASIZE			  Text	 0
+@FILENAME			  Text	 KEY
+@INTERFACE			  Text	 00H
+@MODEL				  Text	 1
+@STACK				  Text	 FLAT
+@WORDSIZE			  Text	 4
+START				  Near	 FLAT:0008
+
+Groups & Segments		  Bit Size Align  Combine Class
+
+DGROUP				  Group
+  STACK				  32  0100 Para	  Stack	  STACK
+  _DATA				  32  0000 Dword  Public  DATA
+FLAT				  Group
+_TEXT				  32  0017 Dword  Public  CODE
+

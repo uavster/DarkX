@@ -1,0 +1,22 @@
+Turbo Assembler  Version 4.0  Copyright (c) 1988, 1993 Borland International
+
+Assembling file:   darkx.ASM
+*Warning* vcpi.inc(41) Operand size conflict
+**Error** darkx.ASM(656) FREE_XMS_MEM(6) Offset or pointer is 32-bit
+**Error** darkx.ASM(717) Can't address with currently ASSUMEd segment registers
+*Warning* darkx.ASM(946) Reserved word used as symbol: CPUID
+*Warning* darkx.ASM(1094) Operand size conflict
+*Warning* dpmisup.inc(725) Operand size conflict
+**Error** excs32.inc(250) PUSHD(2) Offset or pointer is 32-bit
+**Error** int21oem.inc(58) PUSHD(2) Offset or pointer is 32-bit
+*Warning* loadle.inc(272) ":" operator ignored
+*Warning* loadle.inc(401) ":" operator ignored
+*Warning* loadle.inc(426) ":" operator ignored
+*Warning* dlnkload.inc(15) Operand size conflict
+*Warning* dlnkload.inc(121) Operand size conflict
+*Warning* darkx.ASM(1439) Operand size conflict
+Error messages:    4
+Warning messages:  10
+Passes:            2
+Remaining memory:  336k
+
