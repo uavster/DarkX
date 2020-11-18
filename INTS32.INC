@@ -2,8 +2,8 @@
 real_int:
         push    ebx
         mov     ebx,ss:[esp+4*4]
-        and     ebx,1 SHL 9
         pushfd
+        and     ebx,1 SHL 9
         or      ss:[esp],ebx        
         popfd
 	; nos guardamos los segmentos
