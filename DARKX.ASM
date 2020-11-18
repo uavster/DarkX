@@ -2,6 +2,9 @@
 NOWARN PRO
 JUMPS
 
+; number of needed call-back slots
+NUM_RM_CALLBACKS	EQU 32
+
 ; stack sizes in DWORDs
 PM_STACKSIZE    EQU 1000h       ; 4Kb
 RM_STACKSIZE    EQU 1000h       ; 4Kb
@@ -325,11 +328,12 @@ TCallback       STRUC
         rm_call_struc   TFword ?
 ENDS
 
-;RM_ENTRY=offset callback_address_table
+RM_ENTRY=offset callback_address_table
 LABEL   callback_data
-REPT    CALLBACKS
+REPT    NUM_RM_CALLBACKS
         TCallback <FREE_CB,RM_ENTRY,?,?>
-RM_ENTRY=(offset end_of_cb_address-offset callback_address_table)
+		RM_ENTRY_SIZE=(offset end_of_cb_address-offset callback_address_table)
+RM_ENTRY=RM_ENTRY+RM_ENTRY_SIZE
 ENDM
 
 TXDATA  ENDS

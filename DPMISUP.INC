@@ -695,7 +695,7 @@ callback_alloc:
         push    eax ebx ecx edx
         mov     bx,ds
         mov     ds,cs:D16_SEL
-        mov     ecx,CALLBACKS
+        mov     ecx,NUM_RM_CALLBACKS
         xor     eax,eax
         search_a_free_callback:
                 cmp     [eax+callback_data.callback_state],FREE_CB
@@ -732,7 +732,7 @@ callback_free:
         push    eax ebx ecx edx
         mov     bx,offset callback_address_table
         xor     eax,eax
-        mov     ecx,CALLBACKS
+        mov     ecx,NUM_RM_CALLBACKS
         search_address:
                 cmp     bx,dx
                 jz      address_found

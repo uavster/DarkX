@@ -2,9 +2,6 @@
 ; Real Mode Call-Back routines
 ;컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴�
 
-; number of needed call-back slots
-CALLBACKS       EQU 32
-
 ; call-back address table
 callback_address_table:
         push    ax
@@ -12,7 +9,7 @@ callback_address_table:
         jmp     callback_manager
 end_of_cb_address:    ; we need it to calculate the length
 CBSLOT=size TCallBack
-REPT    (CALLBACKS-1)
+REPT    (NUM_RM_CALLBACKS-1)
         push    ax
         mov     ax,CBSLOT
         jmp     word ptr callback_manager
