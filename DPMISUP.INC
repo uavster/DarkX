@@ -730,15 +730,18 @@ callback_alloc:
 ;컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴�
 callback_free:
         push    eax ebx ecx edx
+		cmp		cx,txcode
+		jnz		cb_not_found
         mov     bx,offset callback_address_table
         xor     eax,eax
         mov     ecx,NUM_RM_CALLBACKS
         search_address:
                 cmp     bx,dx
-                jz      address_found
+                jz     	address_found
                 add     bx,offset end_of_cb_address-offset callback_address_table
                 add     eax,size TCallback
         loop    search_address
+		cb_not_found:
         pop     edx ecx ebx eax
         or      byte ptr ss:[esp+4*2],1
         iretd
@@ -758,6 +761,12 @@ callback_free:
 get_rm_int_vec:
         push    ds ebx
         mov     ds,cs:D32_SEL
+        cmp     bl,8
+        jb      no_irq_fixup_rm1
+        cmp     bl,15
+        ja      no_irq_fixup_rm1
+                add     bl,50h-8        ; irq's redireccionadas
+        no_irq_fixup_rm1:
         movzx   ebx,bl
         mov     dx,[ebx*4]
         mov     cx,[ebx*4+2]
@@ -767,6 +776,12 @@ get_rm_int_vec:
 ;컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴�
 set_rm_int_vec:
         push    ds
+        cmp     bl,8
+        jb      no_irq_fixup_rm2
+        cmp     bl,15
+        ja      no_irq_fixup_rm2
+                add     bl,50h-8        ; irq's redireccionadas
+        no_irq_fixup_rm2:
         movzx   ebx,bl
         mov     ds,cs:D32_SEL
         mov     [ebx*4],dx
