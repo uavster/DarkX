@@ -540,7 +540,7 @@ get_int_vector:
         jb      no_irq_fixup1
         cmp     bl,15
         ja      no_irq_fixup1
-                add     bl,50h-8        ; irq's redireccionadas
+                add     bl,NEW_IRQ0_IRQ7_BASE-8        ; irq's redireccionadas
         no_irq_fixup1:
         mov     cx,word ptr [ebx*8+eax+idt+2]
         mov     dx,word ptr [ebx*8+eax+idt+6]
@@ -561,7 +561,7 @@ set_int_vector:
         jb      no_irq_fixup2
         cmp     bl,15
         ja      no_irq_fixup2
-                add     bl,50h-8           
+                add     bl,NEW_IRQ0_IRQ7_BASE-8           
         no_irq_fixup2:
         mov     word ptr [ebx*8+eax+idt+2],cx
         mov     word ptr [ebx*8+eax+idt],dx
@@ -765,7 +765,7 @@ get_rm_int_vec:
         jb      no_irq_fixup_rm1
         cmp     bl,15
         ja      no_irq_fixup_rm1
-                add     bl,50h-8        ; irq's redireccionadas
+                add     bl,NEW_IRQ0_IRQ7_BASE-8        ; irq's redireccionadas
         no_irq_fixup_rm1:
         movzx   ebx,bl
         mov     dx,[ebx*4]
@@ -780,7 +780,7 @@ set_rm_int_vec:
         jb      no_irq_fixup_rm2
         cmp     bl,15
         ja      no_irq_fixup_rm2
-                add     bl,50h-8        ; irq's redireccionadas
+                add     bl,NEW_IRQ0_IRQ7_BASE-8        ; irq's redireccionadas
         no_irq_fixup_rm2:
         movzx   ebx,bl
         mov     ds,cs:D32_SEL

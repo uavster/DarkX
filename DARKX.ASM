@@ -4,6 +4,8 @@ JUMPS
 
 ; number of needed call-back slots
 NUM_RM_CALLBACKS	EQU 32
+; New IRQ base interrupt
+NEW_IRQ0_IRQ7_BASE	EQU 50h
 
 ; stack sizes in DWORDs
 PM_STACKSIZE    EQU 1000h       ; 4Kb
@@ -571,14 +573,14 @@ init_pm:
         xor     ax,ax
         mov     ds,ax
         mov     es,ax
-        mov     di,50h*4
+        mov     di,NEW_IRQ0_IRQ7_BASE*4
         movzx   si,cs:irq_base
         shl     si,2
         mov     cx,8
         cli
         rep     movsd
         ; redireccionamos las irqs
-        mov     ah,50h
+        mov     ah,NEW_IRQ0_IRQ7_BASE
         call    irq_redir
         ; alojamos toda la memoria del DOS
         call    alloc_dos_mem
@@ -793,8 +795,8 @@ init_data       proc
 	dec     cl
 	jnz     short gen_ints
         ; arreglamos las irq's
-        mov     ax,offset real_irq-(offset interrup_redir+8*50h)-8
-        mov     di,offset interrup_redir+8*50h+4
+        mov     ax,offset real_irq-(offset interrup_redir+8*NEW_IRQ0_IRQ7_BASE)-8
+        mov     di,offset interrup_redir+8*NEW_IRQ0_IRQ7_BASE+4
         mov     cx,8    ; irqs. bajas
         fix_irqs:
                 stosw
