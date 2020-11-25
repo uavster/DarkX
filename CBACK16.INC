@@ -97,10 +97,10 @@ callback_manager:
         pop     ax
 
         ; restauramos SS,SP,CS,IP y FLAGS de la estructura de modo real        mov
-        push    cs:new_flags
-        popf
         lss     sp,cs:new_stack
-        jmp     dword ptr cs:new_code
+        push    cs:new_flags
+		push	dword ptr cs:new_code
+		iret
 
 current_stackframe      dd ?
 new_code                dd ?
