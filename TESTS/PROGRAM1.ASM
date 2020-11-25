@@ -160,7 +160,7 @@ bin_to_dec      endp
 
 program_base    dd 0
 
-hello_msg       db 13,10,10,"Say hello to protected mode and press a key...$"
+hello_msg       db 13,10,10,"Say hello to protected mode and press ESC...$"
 
 handle_msg      db 13,10,"Created file with handle: $"
 create_error    db 13,10,"Error with function CREATE FILE$"
