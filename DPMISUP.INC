@@ -148,11 +148,14 @@ make_rm_int:
         mov     edi,txcode
         shl     edi,4
         ASSUME  DS:txcode
+		push	dword ptr ds:[edi+saltito+1]
         mov     word ptr ds:[edi+saltito+1],offset dpmi_rm_int
+		mov		word ptr ds:[edi+saltito+3],txcode
         ; corregimos el salto de vuelta a protegido
         ASSUME  ES:txdata
+		push	dword ptr es:prot_code_address
+		push	dword ptr es:prot_code_address+4
         mov     es:prot_code_address,offset back_from_dpmi_int
-
 	mov     ds,cs:D16_SEL
 	mov     es,cs:D32_SEL
         push    dword ptr cs:C16_SEL
@@ -161,17 +164,12 @@ make_rm_int:
 
         back_from_dpmi_int:
         cli
-        ; restauramos el salto a real
-        mov     ds,cs:D32_SEL
-        mov     ebx,txcode
-        shl     ebx,4
-        mov     word ptr [ebx+saltito+1],offset rm_int
 
         ; copiamos los valores de la pila real
         ASSUME  DS:txdata
         mov     ds,cs:D16_SEL
         mov     edi,pm_esp
-        add     edi,13*4        ; POP ES,POP EDI,POPAD,POP EIP,POP CS,POPFD
+        add     edi,13*4+3*4        ; POP prot_code_address, POP prot_code_address+4, POP saltito, POP EDI,POP ES,POPAD,POP EIP,POP CS,POPFD
         mov     es,pm_ss
         ASSUME  DS:txcode
         mov     ds,cs:D32_SEL
@@ -192,13 +190,23 @@ make_rm_int:
         ASSUME  DS:txdata
 
         no_return_vals:
-        ; volvemos a poner bien la direcci¢n de retorno a protegido
         mov     ds,cs:D16_SEL
         ASSUME  DS:txdata
-        mov     prot_code_address,offset pm_ret_point
-        ; copiamos todos los valores obtenidos en la estructura
+		; Restauramos la pila en protegido
         mov     ss,pm_ss
         mov     esp,pm_esp
+		
+		; restauramos el salto a protegido
+		pop		dword ptr ds:prot_code_address+4
+		pop		dword ptr ds:prot_code_address
+        ; restauramos el salto a real
+        mov     es,cs:D32_SEL
+        mov     ebx,txcode
+        shl     ebx,4
+        ASSUME  ES:txcode
+		pop		dword ptr es:[ebx+saltito+1]
+
+        ; copiamos todos los valores obtenidos en la estructura
         pop     edi es
         mov     esi,offset rm_regs_struc
         mov     ecx,32h/2
