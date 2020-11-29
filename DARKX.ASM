@@ -101,6 +101,8 @@ TXDATA  SEGMENT USE16 'DATA'
         pm_gs                   dw ?
 	pm_ss                   dw ?
 
+	dpmi_pm_ss				dw ?
+	dpmi_pm_esp				dd ?
 	dpmi_32b_error          db "DPMI does not support 32bit programs!$"
 	dpmi_init_error         db "Error initializing DPMI!$"
 
@@ -352,7 +354,6 @@ INCLUDE         vcpi.inc
 INCLUDE         dpmi.inc
 INCLUDE         ints16.inc
 INCLUDE         cback16.inc
-
 
 ; ////////////////////////////
 ; PUNTO DE ENTRADA DE DarkX.EXE
