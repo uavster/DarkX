@@ -45,6 +45,11 @@ callback_manager:
         mov     word ptr cs:pila_real+2,ss
         ; guardamos el n£mero de call-back para el c¢digo en protegido
         mov     cs:callback_code,ax
+		push	bp
+		mov		bp,sp
+		mov		ax,ss:[bp+2*4]	; BP, AX, IP, CS, ->FLAGS<-
+		pop		bp
+		mov		cs:flags_real,ax
         ; guardamos el estado de la CPU
         pushfd
         pushad
@@ -73,6 +78,21 @@ callback_manager:
         mov     word ptr cs:current_stackframe,sp
         mov     word ptr cs:current_stackframe+2,ss
 
+mov al,'|'
+call debug16_char
+mov al,'J'
+call debug16_char
+movzx eax,cs:flags_real
+call debug16_reg
+mov al,':'
+call debug16_char
+xor eax,eax
+mov ax,ss
+shl eax,4
+movzx esp,sp
+add eax,esp
+call debug16_reg
+
         jmp     set_pm_address
 
         cback16_return:
@@ -88,6 +108,23 @@ callback_manager:
         pop     dword ptr cs:saltito+1
         pop     word ptr prot_code_address+4
         pop     dword ptr prot_code_address
+
+;mov ax,0b800h
+;mov ds,ax
+;mov	byte ptr ds:[6*160],'Z'
+;mov byte ptr ds:[6*160+1],3eh
+;mov ax,cs:new_flags
+;and ah,0fh
+;add ah,'0'
+;mov	byte ptr ds:[4*160+2],ah
+;mov	byte ptr ds:[4*160+3],3eh
+
+mov al,'|'
+call debug16_char
+mov al,'K'
+call debug16_char
+movzx eax,cs:new_flags
+call debug16_reg
 
         ; recuperamos el estado de la CPU
         pop     gs fs es ds
@@ -108,3 +145,4 @@ new_stack               dd ?
 new_flags               dw ?
 callback_code           dw ?
 pila_real               dd ?
+flags_real				dw ?

@@ -6,6 +6,17 @@ real_int:
         and     ebx,1 SHL 9
         or      ss:[esp],ebx        
         popfd
+
+push eax
+mov al,'|'
+call debug32_char
+mov al,'S'
+call debug32_char
+;mov eax,esp
+;;add eax,4*2
+;call debug32_reg
+pop eax
+
 	; nos guardamos los segmentos
 	ASSUME  DS:txdata
 	mov     bx,ds
@@ -77,6 +88,7 @@ real_irq:
         push    dword ptr es:[ecx+saltito+1]
         mov     word ptr es:[ecx+saltito+1],offset irq16
         mov     word ptr es:[ecx+saltito+3],txcode
+
         mov     ds,cs:D16_SEL
         ASSUME  DS:txdata
         push    dword ptr prot_code_address
@@ -101,7 +113,7 @@ real_irq:
         ASSUME  DS:txcode
         pop     dword ptr [ecx+saltito+1]
         ASSUME  DS:txdata
-        pop     gs fs es ds
+        pop     gs fs es ds		; TODO: crash point when only callbacks are enabled, and calling old IRQ is enabled.
         popad
         pop     eax
         iretd

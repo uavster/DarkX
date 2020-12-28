@@ -23,7 +23,7 @@ saltito db 0eah
 ;컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴�
 
 set_pm_raw:
-; INPUT -> DS = D16_SEL
+; INPUT -> DS = TXDATA
         ; ponemos la GDT y la IDT
         db      66h
         lgdt    fword ptr gdt_reg

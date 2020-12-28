@@ -2,20 +2,62 @@
 NOWARN PRO
 JUMPS
 
+DEBUG_ON	EQU 0
+
 ; number of needed call-back slots
 NUM_RM_CALLBACKS	EQU 32
 ; New IRQ base interrupt
 NEW_IRQ0_IRQ7_BASE	EQU 50h
 
 ; stack sizes in DWORDs
-PM_STACKSIZE    EQU 1000h       ; 4Kb
-RM_STACKSIZE    EQU 1000h       ; 4Kb
+PM_STACKSIZE    EQU 1000h       ; 16 Kb
+RM_STACKSIZE    EQU 1000h       ; 16 Kb
+
+DPMI_MAX_REENTRIES EQU 10
 
 ; TASM 3.1 no ensambla bien los PUSH's de offsets de 32 bits
 pushd MACRO address_32
 	db 68h
 	dw offset address_32,0
 ENDM
+
+Tstack_info		struc
+	stack_esp	dd ?
+	stack_ss	dw ?
+ends
+
+Tpushad_regs	struc
+	_edi		dd ?
+	_esi        dd ?
+	_ebp        dd ?
+	_esp		dd ?
+	_ebx        dd ?
+	_edx        dd ?
+	_ecx        dd ?
+	_eax        dd ?
+ends
+
+Tdpmi_rm_regs   STRUC
+	rm_edi      dd ?
+	rm_esi      dd ?
+	rm_ebp      dd ?
+				dd ?
+	rm_ebx      dd ?
+	rm_edx      dd ?
+	rm_ecx      dd ?
+	rm_eax      dd ?
+	rm_flags    dw ?
+	rm_es       dw ?
+	rm_ds       dw ?
+	rm_fs       dw ?
+	rm_gs       dw ?
+	rm_ip       dw ?
+	rm_cs       dw ?
+	rm_sp       dw ?
+	rm_ss       dw ?
+ends
+
+
 
 ;ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
 ; SEGMENTO DE DATOS DE PROGRAMA
@@ -95,14 +137,6 @@ TXDATA  SEGMENT USE16 'DATA'
 
 	vcpi_init_err_msg       db "Error initializing VCPI!$"
 
-	pm_ds                   dw ?
-	pm_es                   dw ?
-	pm_fs                   dw ?
-        pm_gs                   dw ?
-	pm_ss                   dw ?
-
-	dpmi_pm_ss				dw ?
-	dpmi_pm_esp				dd ?
 	dpmi_32b_error          db "DPMI does not support 32bit programs!$"
 	dpmi_init_error         db "Error initializing DPMI!$"
 
@@ -133,22 +167,24 @@ TXDATA  SEGMENT USE16 'DATA'
 	psp_seg                 dw ?
 
 	; registros en modo real antes del salto a protegido
-        rm_regs_struc           LABEL
+    rm_regs_struc           LABEL
 	real_edi                dd 0
 	real_esi                dd 0
 	real_ebp                dd 0
-                                dd 0    ; reserverd
+                            dd 0    ; reserved
 	real_ebx                dd 0
 	real_edx                dd 0
 	real_ecx                dd 0
 	real_eax                dd 0
-        real_flags              dw 0
-        real_es                 dw 0
-        real_ds                 dw 0
-        real_fs                 dw 0
-        real_gs                 dw 0
-                                dw 0,0  ; CS:IP
-                                dw 0,0  ; SS:SP
+    real_flags              dw 0
+    real_es                 dw 0
+    real_ds                 dw 0
+    real_fs                 dw 0
+    real_gs                 dw 0
+    real_ip                 dw 0
+	real_cs					dw 0
+    real_sp                 dw 0
+	real_ss					dw 0
 
 	; registros en modo protegido antes del salto a real
 	pm_eax                  dd 0
@@ -160,8 +196,52 @@ TXDATA  SEGMENT USE16 'DATA'
 	pm_ebp                  dd 0
 	pm_esp                  dd 0
 	pm_eflags               dd 0
+	pm_ds                   dw ?
+	pm_es                   dw ?
+	pm_fs                   dw ?
+    pm_gs                   dw ?
+	pm_ss                   dw ?
 
-	ret_info                dd ?,?          ; EIP,CS
+	; Every switch to real mode in the DPMI interface does:
+	; * Store PM stack in the index of dpmi_stack_info in dpmi_stack_info_offset
+	; * dpmi_stack_info_offset += size Tstack_info
+	; Swithing back to protected mode does dpmi_stack_info_offset -= size Tstack_info
+	dpmi_stack_info_offset	dd 0
+	dpmi_stack_info			Tstack_info DPMI_MAX_REENTRIES dup(<>)
+
+	dpmi_pm_eax             dd 0
+	dpmi_pm_ebx             dd 0
+	dpmi_pm_ecx             dd 0
+	dpmi_pm_edx             dd 0
+	dpmi_pm_esi             dd 0
+	dpmi_pm_edi             dd 0
+	dpmi_pm_ebp             dd 0
+	dpmi_pm_eflags          dd 0
+	dpmi_pm_ds				dw ?
+	dpmi_pm_es				dw ?
+	dpmi_pm_fs				dw ?
+	dpmi_pm_gs				dw ?
+	dpmi_pm_esp				dd ?
+	dpmi_pm_ss				dw ?
+	
+    dpmi_rm_regs_struc           LABEL
+	dpmi_real_edi                dd 0
+	dpmi_real_esi                dd 0
+	dpmi_real_ebp                dd 0
+                            dd 0    ; reserved
+	dpmi_real_ebx                dd 0
+	dpmi_real_edx                dd 0
+	dpmi_real_ecx                dd 0
+	dpmi_real_eax                dd 0
+    dpmi_real_flags              dw 0
+    dpmi_real_es                 dw 0
+    dpmi_real_ds                 dw 0
+    dpmi_real_fs                 dw 0
+    dpmi_real_gs                 dw 0
+    dpmi_real_ip                 dw 0
+	dpmi_real_cs					dw 0
+    dpmi_real_sp                 dw 0
+	dpmi_real_ss					dw 0
 
 	set_pm_address          dw offset set_pm_raw
 
@@ -280,8 +360,9 @@ TXDATA  SEGMENT USE16 'DATA'
 ; Teknik Teknik Teknik Teknik Teknik Teknik Teknik Teknik Teknik Teknik
 ; ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
 
-;        include nicedbg.inc             ; DEBUGGING macros
-
+IF DEBUG_ON
+        include nicedbg.inc             ; DEBUGGING macros
+ENDIF
         include letypes.inc
 
 ; ÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍ
@@ -324,7 +405,7 @@ ENDS
 
 FREE_CB         EQU 0
 ALLOCATED_CB    EQU 1
-; call-back data table
+; call-back data table (size must be 16 bytes)
 TCallback       STRUC
         callback_state  db ?
         rm_entry_point  dw ?
@@ -340,6 +421,9 @@ REPT    NUM_RM_CALLBACKS
 RM_ENTRY=RM_ENTRY+RM_ENTRY_SIZE
 ENDM
 
+debug_row	db 0
+debug_col	db 0
+debug_tmp	db 16 dup(?)
 TXDATA  ENDS
 
 ;ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
@@ -354,6 +438,7 @@ INCLUDE         vcpi.inc
 INCLUDE         dpmi.inc
 INCLUDE         ints16.inc
 INCLUDE         cback16.inc
+INCLUDE 		debug16.inc
 
 ; ////////////////////////////
 ; PUNTO DE ENTRADA DE DarkX.EXE
@@ -607,6 +692,25 @@ set_pm:
 	mov     real_ebp,ebp
 	jmp     set_pm_address
 
+set_pm_dpmi:
+        pushf
+        cli
+	push    txdata
+	pop     ds
+        pop     word ptr dpmi_real_flags
+        mov     dpmi_real_eax,eax
+;        mov     ax,word ptr pm_eflags
+;        and     ax,1 SHL 9          ; IF will be 1 if activated in any mode
+;        or      word ptr real_flags,ax
+	mov     dpmi_real_ebx,ebx
+	mov     dpmi_real_ecx,ecx
+	mov     dpmi_real_edx,edx
+	mov     dpmi_real_esi,esi
+	mov     dpmi_real_edi,edi
+	mov     dpmi_real_ebp,ebp
+	jmp     set_pm_address
+
+
 ;ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
 ; RUTINA DE VUELTA A REAL PARA TODOS LOS SISTEMAS (MODO PROTEGIDO)
 ;ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
@@ -625,6 +729,25 @@ ret_real:
         mov     pm_ebp,ebp
         mov     pm_esp,esp
         jmp     ret_real_address
+	
+;		push eax
+;		pushfd
+;		cli
+;		ASSUME DS:TXDATA
+;		mov eax,ds:dpmi_state_offset
+;		add eax,offset dpmi_state
+;		mov ds:[eax._pm_esp],esp
+;		add ds:[eax.pm_esp],4
+;		mov ds:[eax._pm_ss],ss
+;		mov	ss,cs:D16_SEL
+;		lea esp,ds:[eax._pm_ip]
+;		push gs fs ds es
+;		pushfd
+;		pushad
+;		lss esp,ds:[eax._pm_esp]
+;		pop	ds:[eax._pm_eflags]
+;		pop ds:[eax._pm_eax]
+;        jmp     ret_real_address
 
 ;ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
 ; RUTINAS DE SALIDA AL SISTEMA OPERATIVO PARA TODOS LOS SISTEMAS (MODO REAL)
@@ -739,7 +862,7 @@ alloc_dos_mem   endp
 init_data       proc
 
         ; inicializamos el stack frame para interrupciones reales
-        mov     cs:stack_frame+2,txpila_real
+        mov     word ptr cs:stack_frame+2,txpila_real
 
 	cld
 	mov     ax,txcode32
@@ -1181,6 +1304,7 @@ CODE_SEL                dw 5 SHL 3,0
 DATA_SEL                dw 6 SHL 3,0
 ENVRN_SEL               dw 7 SHL 3,0
 
+INCLUDE					debug32.inc
 INCLUDE                 dpmisup.inc
 INCLUDE                 oemfuncs.inc    ; DarkX OEM functions
 INCLUDE                 dos32sup.inc    ; DOS32 basic support
@@ -1388,6 +1512,12 @@ c32_init:
         ; Ponemos en el PSP el selector del segmento de vars. de entorno
         mov     bx,cs:ENVRN_SEL
         mov     es:[2Ch],bx
+
+push ebx
+mov bh,15
+xor bl,bl
+call debug32_move_cursor
+pop ebx
 
         push    dword ptr cs:CODE_SEL
         push    eax

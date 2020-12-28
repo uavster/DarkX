@@ -87,139 +87,267 @@ tx_int31h:
 ;컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴�
 ; Real Mode Services for Interrupt and Far Call execution
 ;컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴�
+DPMI_TOTAL_STACK_SIZE EQU 4*RM_STACKSIZE/2
+DPMI_REENTRY_STACK_SIZE EQU DPMI_TOTAL_STACK_SIZE/DPMI_MAX_REENTRIES
+
 make_rm_int:
         pushad
+		push	ds es fs gs
         push    es edi
-        mov     dx,ds
-        mov     ds,cs:D16_SEL
-        mov     pm_es,es
-        mov     pm_fs,fs
-        mov     pm_gs,gs
-        mov     pm_ds,dx
-        ; copiamos en pila el n즡ero de WORDS indicados por CX
+		mov		ds,cs:D32_SEL
+
+mov es:[edi.rm_ebp],eax
+		
+ASSUME DS:txcode32
+xor edx,edx
+mov dx,txcode32
+shl edx,4
+mov ds:[edx+offset tmp_esi],esi
+
+		; Get RM proc address from int vector table if service is 300h
+		cmp		ax,300h
+		jnz		no_int_service
+				movzx	ebx,bl
+				mov		ebx,ds:[ebx*4]
+				mov		dword ptr es:[edi.rm_ip],ebx
+		no_int_service:
+		
+        ; Assign a stack to RM, if not provided
+		mov		ebx,txcode
+		shl		ebx,4
+		ASSUME	DS:txcode
+		pushfd
+		cli
+		mov		ds:[ebx+dpmi_stack_post_increment],0
+        mov     edx,dword ptr es:[edi.rm_sp]
+        or      edx,edx
+        jnz     stack_provided
+				; Provide a real-mode stack for the call
+				mov		ds:[ebx+dpmi_stack_post_increment],DPMI_REENTRY_STACK_SIZE
+				sub     word ptr ds:[ebx+dpmi_stack_frame],DPMI_REENTRY_STACK_SIZE
+				mov     word ptr ds:[ebx+dpmi_stack_frame+2],txpila_real
+				mov		edx,dword ptr ds:[ebx+dpmi_stack_frame]
+        stack_provided:
+		popfd
+		mov		dword ptr es:[edi.rm_sp],edx
+		
+        ; Copy CX words from PM stack to RM stack
+		lea		esi,ss:[esp+size Tpushad_regs+(4+2+3)*4]	; Stack before int 31h, i.e. pop edi es gs fs es ds popad pop eip cs popfd
+		push	esi ecx
         or      cx,cx
         jz      no_stack_parameters
-        mov     esi,esp
-        add     esi,13*4        ; justo antes del CS:EIP, EFLAGS, ...
-        movzx   ecx,cx
-        push    ss
-        pop     ds
-        ; ajustamos el puntero a la pila real
-        mov     edx,dword ptr es:[edi+2Eh]
-        or      edx,edx
-        jnz     no_default_stack
-                mov     dx,txpila_real
-                shl     edx,16
-                mov     dx,size txpr
-        no_default_stack:
-        mov     es,cs:D32_SEL
-        ; guardamos el n즡ero de BYTES en pila
-        mov     ebp,txcode
-        shl     ebp,4
-        ASSUME  ES:txcode
-        shl     ecx,1
-        mov     word ptr es:[ebp+bytes_in_stack],cx
-        ; calculamos el offset lineal de la pila real
-        xor     edi,edi
-        mov     di,dx
-        and     edx,0FFFF0000h
-        shr     edx,16-4
-        add     edi,edx
-        sub     edi,ecx
-        ; lo copiamos todo
-        shr     ecx,1
-        cld
-        rep     movsw
-
+				movzx   ecx,cx
+				push    ss
+				pop     ds
+				; Simulate pushing all stack parameters (subtract twice as ECX is number of parameter WORDS)
+				sub		edx,ecx
+				sub		edx,ecx
+				mov		dword ptr es:[edi.rm_sp],edx
+				mov     es,cs:D32_SEL
+				ASSUME  ES:txcode
+				; calculamos el offset lineal de la pila real
+				xor     edi,edi
+				mov     di,dx
+				and     edx,0FFFF0000h
+				shr     edx,16-4
+				add     edi,edx
+				; lo copiamos todo
+				cld
+				rep     movsw
+				ASSUME  ES:txdata
         no_stack_parameters:
-        ; copiamos la estructura del DPMI 
-        ; (as� no tiene pq estar en el primer Mb)
-        pop     esi
-        pop     ds
-        push    ds
-        push    esi
+		
+        ; Copy DPMI structure to somewhere below 1 Mb for RM access
+        pop     ecx edi esi ds
+        push    ds esi edi ecx
         mov     edi,offset dpmi_rm_call_struc
         mov     es,cs:D16_SEL
-        mov     ecx,32h/2
+        mov     ecx,(size Tdpmi_rm_regs)/2
         cld
         rep     movsw
-        ; corregimos el salto a real
-        mov     ds,cs:D32_SEL
-        mov     edi,txcode
-        shl     edi,4
-        ASSUME  DS:txcode
-		push	dword ptr ds:[edi+saltito+1]
-        mov     word ptr ds:[edi+saltito+1],offset dpmi_rm_int
-		mov		word ptr ds:[edi+saltito+3],txcode
-        ; corregimos el salto de vuelta a protegido
-        ASSUME  ES:txdata
-		push	dword ptr es:prot_code_address
-		push	dword ptr es:prot_code_address+4
-        mov     es:prot_code_address,offset back_from_dpmi_int
+
+;mov byte ptr es:[0b8000h+160*7],'M'
+;mov byte ptr es:[0b8000h+160*7+1],3eh
+
+cmp ax,302h
+jnz no_debug_dpmi13
+ASSUME ES:txcode32
+push ds es
 	mov     ds,cs:D16_SEL
 	mov     es,cs:D32_SEL
-        push    dword ptr cs:C16_SEL
-        pushd   ret_real
-        retf
+push eax
+mov al,'|'
+call debug32_char
+mov al,'N'
+call debug32_char
+;mov eax,ss:[esp+15*4]
+mov eax,txcode32
+shl eax,4
+mov eax,es:[eax+offset tmp_esi]
+mov eax,fs:[eax+2*2]
+call debug32_reg
+pop eax
+pop es ds
+no_debug_dpmi13:
 
-        back_from_dpmi_int:
-        cli
+		; Call real mode routine.
+		; Inside this routine, and in RM, the DPMI input structure can be found in dpmi_rm_call_struc.
+		mov cx,txcode
+		cmp	ax,301h
+		jnz call_with_iret
+				mov dx,offset dpmi_rm_retf
+				jmp call_real_mode
+		call_with_iret:
+				mov dx,offset dpmi_rm_iret
+		call_real_mode:
+		push eax
+		call dpmi_call_rm
+		pop eax
 
-        ; copiamos los valores de la pila real
-        ASSUME  DS:txdata
-        mov     ds,cs:D16_SEL
-        mov     edi,pm_esp
-        add     edi,13*4+3*4        ; POP prot_code_address, POP prot_code_address+4, POP saltito, POP EDI,POP ES,POPAD,POP EIP,POP CS,POPFD
-        mov     es,pm_ss
-        ASSUME  DS:txcode
-        mov     ds,cs:D32_SEL
-        mov     esi,txcode
-        shl     esi,4
-        xor     ecx,ecx
-        mov     cx,[esi+bytes_in_stack]
+cmp ax,302h
+jnz no_debug_dpmi14
+ASSUME ES:txcode32
+push ds es
+	mov     ds,cs:D16_SEL
+	mov     es,cs:D32_SEL
+push eax
+mov al,'|'
+call debug32_char
+mov al,'p'
+call debug32_char
+;mov eax,ss:[esp+15*4]
+mov eax,txcode32
+shl eax,4
+mov eax,es:[eax+offset tmp_esi]
+mov eax,fs:[eax+2*2]
+call debug32_reg
+pop eax
+pop es ds
+no_debug_dpmi14:
+
+		; Copy stack parameters in RM stack back to PM stack
+		pop		ecx		; ECX = Number of stack parameter words
+		pop		esi		; SS:ESI -> Stack before int 31h
+		pop 	edi es	; ES:EDI -> Passed RM struct with registers
+		push	es edi
+		mov		ebx,dword ptr es:[edi.rm_sp]	; EBX = segment:offset of RM stack
+        push	ss
+		pop		es
+		mov		edi,esi	; ES:EDI -> Stack before int 31h
         or      cx,cx
         jz      no_return_vals
-        mov     [esi+bytes_in_stack],0
-        mov     esi,txpila_real
-        shl     esi,4
-        add     esi,size txpr
-        sub     esi,ecx
-        shr     ecx,1
-        cld
-        rep     movsw
-        ASSUME  DS:txdata
-
+				ASSUME  DS:txcode
+				mov     ds,cs:D32_SEL
+				movzx	esi,bx
+				and     ebx,0FFFF0000h
+				shr     ebx,16-4
+				add     esi,ebx
+				sub		esi,ecx
+				sub		esi,ecx
+				cld
+				rep     movsw
+				ASSUME  DS:txdata
         no_return_vals:
-        mov     ds,cs:D16_SEL
-        ASSUME  DS:txdata
-		; Restauramos la pila en protegido
-        mov     ss,pm_ss
-        mov     esp,pm_esp
 		
-		; restauramos el salto a protegido
-		pop		dword ptr ds:prot_code_address+4
-		pop		dword ptr ds:prot_code_address
-        ; restauramos el salto a real
-        mov     es,cs:D32_SEL
-        mov     ebx,txcode
-        shl     ebx,4
-        ASSUME  ES:txcode
-		pop		dword ptr es:[ebx+saltito+1]
-
         ; copiamos todos los valores obtenidos en la estructura
         pop     edi es
-        mov     esi,offset rm_regs_struc
-        mov     ecx,32h/2
+        mov     ds,cs:D16_SEL
+        ASSUME  DS:txdata
+        mov     esi,offset dpmi_rm_regs_struc
+        mov     ecx,(size Tdpmi_rm_regs)/2
         cld
         rep     movsw
+		
+		; Free provided stack 
+		mov		ds,cs:D32_SEL
+		mov		ebx,txcode
+		shl		ebx,4
+		ASSUME	DS:txcode
+		pushfd
+		cli
+		mov		dx,ds:[ebx+dpmi_stack_post_increment]
+		add     word ptr ds:[ebx+dpmi_stack_frame],dx
+		popfd
+		
         ; restauramos los registros
+		pop gs fs es ds
         popad
-        ; restauramos los selectores de protegido
-        mov     es,pm_es
-        mov     fs,pm_fs
-        mov     gs,pm_gs
-        mov     ds,pm_ds
+
+cmp ax,302h
+jnz no_debug_dpmi15
+ASSUME ES:txcode32
+push ds es
+	mov     ds,cs:D16_SEL
+	mov     es,cs:D32_SEL
+push eax
+mov al,'|'
+call debug32_char
+mov al,'P'
+call debug32_char
+;mov eax,ss:[esp+15*4]
+mov eax,txcode32
+shl eax,4
+mov eax,es:[eax+offset tmp_esi]
+mov eax,fs:[eax+2*2]
+call debug32_reg
+pop eax
+pop es ds
+no_debug_dpmi15:
+
+		clc
         iretd
+
+tmp_esi dd 1234h
+
+dpmi_call_rm proc
+; INPUT: 	CX:DX -> Real mode entry point to call. Must end with "jmp set_pm_dpmi".
+
+	; Save current RM entry point and fix with new address
+	mov     ds,cs:D32_SEL
+	mov     edi,txcode
+	shl     edi,4
+	ASSUME  DS:txcode
+	push	dword ptr ds:[edi+saltito+1]
+	mov     word ptr ds:[edi+saltito+1],dx
+	mov		word ptr ds:[edi+saltito+3],cx
+	; Save current PM return point and fix with new address
+	ASSUME  DS:txdata
+	mov     ds,cs:D16_SEL
+	push	dword ptr ds:prot_code_address
+	push	dword ptr ds:prot_code_address+4
+	mov     dword ptr ds:prot_code_address,offset back_from_rm_call
+	mov		word ptr ds:prot_code_address+4,cs
+	; Save PM stack
+	mov eax,ds:dpmi_stack_info_offset
+	add eax,offset dpmi_stack_info
+	add ds:dpmi_stack_info_offset,size Tstack_info
+	mov ds:[eax.stack_esp],esp
+	mov ds:[eax.stack_ss],ss
+	
+	; Far jump to RM entry point
+    push dword ptr cs:C16_SEL
+    pushd ret_real
+	retf
+	back_from_rm_call:
+	
+	; Recover PM stack
+	mov     ds,cs:D16_SEL
+	ASSUME  DS:txdata
+	sub ds:dpmi_stack_info_offset,size Tstack_info
+	mov	eax,ds:dpmi_stack_info_offset
+	lss esp,ds:[eax+dpmi_stack_info]
+	; Restore PM return point
+	pop		dword ptr ds:prot_code_address+4
+	pop		dword ptr ds:prot_code_address
+	; Restore RM entry point
+	mov     ds,cs:D32_SEL
+	mov     eax,txcode
+	shl     eax,4
+	ASSUME  DS:txcode
+	pop		dword ptr ds:[eax+saltito+1]
+	
+	ret
+endp
 
 ;컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴�
 ; DOS Memory Management Services
