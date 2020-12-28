@@ -55,15 +55,23 @@ main:
         int     31h
         ErrorExit "No me guttta tu call-back!"
         mov     ax,201h
-        mov     bl,80h
+        mov     bl,8
         int     31h
         ErrorExit "Interruciong? y ezo que eh???"
 
+        mov     ebx,0
+        mov     al,36h
+        out     43h,al
+        mov     al,bl
+        out     40h,al
+        mov     al,bh
+        out     40h,al        
+		
         bucle:
-                int     80h
-        mov     ah,1
-        int     16h
-        jz      bucle
+;                int     80h
+;        mov     ah,1
+;        int     16h
+;        jz      bucle
         xor     ah,ah
         int     16h
 
@@ -84,6 +92,9 @@ proctocall:
         nada:
         mov     hihi,al
 
+		mov		ax,20h
+		out		20h,al
+		
         cld
         lodsw
         mov     es:[edi.rm_ip],ax
