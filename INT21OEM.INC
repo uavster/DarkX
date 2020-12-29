@@ -66,7 +66,7 @@ dos_int         proc
 	push    es
 	push    ss
 	pop     es
-	xor     edi,edi
+	mov		edi,0	; Don't use XOR to avoid changing flags
 	push    edi
 	push    edi
 	push    edi
