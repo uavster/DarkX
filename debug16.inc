@@ -65,6 +65,7 @@ debug16_move_cursor proc
 ; INPUT ->	BH = row (or -1 to leave as is)
 ;			BL = column (or -1 to leave as is)
 	ASSUME DS:TXDATA
+	pushf
 	push ds ax
 	mov ax,txdata
 	mov ds,ax
@@ -77,6 +78,7 @@ debug16_move_cursor proc
 		mov debug_row,bh
 	leave_row_as_is16:
 	pop ax ds
+	popf
 	ret
 endp
 

@@ -2,6 +2,7 @@ debug32_move_cursor proc
 ; INPUT ->	BH = row (or -1 to leave as is)
 ;			BL = column (or -1 to leave as is)
 	ASSUME DS:TXDATA
+	pushfd
 	push ds
 	mov ds,cs:D16_SEL
 	cmp bl,-1
@@ -13,6 +14,7 @@ debug32_move_cursor proc
 		mov debug_row,bh
 	leave_row_as_is32:
 	pop ds
+	popfd
 	ret
 endp
 
