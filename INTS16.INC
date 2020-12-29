@@ -16,7 +16,7 @@ dpmi_rm_retf:
         pop     ds
         pop     fs
         pop     gs
-        lss     sp,ss:[esp+2*2]
+        lss     sp,dword ptr ss:[dpmi_rm_call_struc.rm_sp]
 
 		call    dword ptr cs:dpmi_rm_proc_address
 		jmp     set_pm_dpmi
@@ -37,7 +37,7 @@ dpmi_rm_iret:
         pop     ds
         pop     fs
         pop     gs
-        lss     sp,ss:[esp+2*2]
+        lss     sp,dword ptr ss:[dpmi_rm_call_struc.rm_sp]
 
 pushad
 push ds
