@@ -156,7 +156,7 @@ mov ds:[edx+offset tmp_esi],esi
 				rep     movsw
 				ASSUME  ES:txdata
         no_stack_parameters:
-		
+
         ; Copy DPMI structure to somewhere below 1 Mb for RM access
         pop     ecx edi esi ds
         push    ds esi edi ecx
@@ -302,6 +302,11 @@ tmp_esi dd 1234h
 dpmi_call_rm proc
 ; INPUT: 	CX:DX -> Real mode entry point to call. Must end with "jmp set_pm_dpmi".
 
+	; Disable interrupts since we're modifying critical state.
+	; Flags in real mode will be set according to the DPMI structure passed by the caller.
+	pushfd
+	cli
+
 	; Save current RM entry point and fix with new address
 	mov     ds,cs:D32_SEL
 	mov     edi,txcode
@@ -310,6 +315,7 @@ dpmi_call_rm proc
 	push	dword ptr ds:[edi+saltito+1]
 	mov     word ptr ds:[edi+saltito+1],dx
 	mov		word ptr ds:[edi+saltito+3],cx
+	
 	; Save current PM return point and fix with new address
 	ASSUME  DS:txdata
 	mov     ds,cs:D16_SEL
@@ -317,6 +323,11 @@ dpmi_call_rm proc
 	push	dword ptr ds:prot_code_address+4
 	mov     dword ptr ds:prot_code_address,offset back_from_rm_call
 	mov		word ptr ds:prot_code_address+4,cs
+
+	; Will restore selectors before leaving to ensure that none is
+	; left with an RM segment that is invalid in PM
+	push ds es fs gs
+	
 	; Save PM stack
 	mov eax,ds:dpmi_stack_info_offset
 	add eax,offset dpmi_stack_info
@@ -336,9 +347,15 @@ dpmi_call_rm proc
 	sub ds:dpmi_stack_info_offset,size Tstack_info
 	mov	eax,ds:dpmi_stack_info_offset
 	lss esp,ds:[eax+dpmi_stack_info]
+
+	; Restore selectors before leaving to ensure that none is
+	; left with an RM segment that is invalid in PM
+	pop gs fs es ds
+	
 	; Restore PM return point
 	pop		dword ptr ds:prot_code_address+4
 	pop		dword ptr ds:prot_code_address
+	
 	; Restore RM entry point
 	mov     ds,cs:D32_SEL
 	mov     eax,txcode
@@ -346,6 +363,7 @@ dpmi_call_rm proc
 	ASSUME  DS:txcode
 	pop		dword ptr ds:[eax+saltito+1]
 	
+	popfd
 	ret
 endp
 
