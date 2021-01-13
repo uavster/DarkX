@@ -93,16 +93,10 @@ DPMI_REENTRY_STACK_SIZE EQU DPMI_TOTAL_STACK_SIZE/DPMI_MAX_REENTRIES
 make_rm_int:
         pushad
 		push	ds es fs gs
-        push    es edi
+		sub		esp,4
+		mov		ebp,esp		; Space for dpmi_stack_post_increment
 		mov		ds,cs:D32_SEL
-
-mov es:[edi.rm_ebp],eax
-		
-ASSUME DS:txcode32
-xor edx,edx
-mov dx,txcode32
-shl edx,4
-mov ds:[edx+offset tmp_esi],esi
+        push    es edi
 
 		; Get RM proc address from int vector table if service is 300h
 		cmp		ax,300h
@@ -111,13 +105,15 @@ mov ds:[edx+offset tmp_esi],esi
 				mov		ebx,ds:[ebx*4]
 				mov		dword ptr es:[edi.rm_ip],ebx
 		no_int_service:
-		
+
         ; Assign a stack to RM, if not provided
 		mov		ebx,txcode
 		shl		ebx,4
 		ASSUME	DS:txcode
 		pushfd
 		cli
+		mov		edx,ds:[ebx+dpmi_stack_post_increment]
+		mov		ss:[ebp],edx	; Push dpmi_stack_post_increment
 		mov		ds:[ebx+dpmi_stack_post_increment],0
         mov     edx,dword ptr es:[edi.rm_sp]
         or      edx,edx
@@ -166,30 +162,6 @@ mov ds:[edx+offset tmp_esi],esi
         cld
         rep     movsw
 
-;mov byte ptr es:[0b8000h+160*7],'M'
-;mov byte ptr es:[0b8000h+160*7+1],3eh
-
-cmp ax,302h
-jnz no_debug_dpmi13
-ASSUME ES:txcode32
-push ds es
-	mov     ds,cs:D16_SEL
-	mov     es,cs:D32_SEL
-push eax
-mov al,'|'
-call debug32_char
-mov al,'N'
-call debug32_char
-;mov eax,ss:[esp+15*4]
-mov eax,txcode32
-shl eax,4
-mov eax,es:[eax+offset tmp_esi]
-mov eax,fs:[eax+2*2]
-call debug32_reg
-pop eax
-pop es ds
-no_debug_dpmi13:
-
 		; Call real mode routine.
 		; Inside this routine, and in RM, the DPMI input structure can be found in dpmi_rm_call_struc.
 		mov cx,txcode
@@ -200,30 +172,7 @@ no_debug_dpmi13:
 		call_with_iret:
 				mov dx,offset dpmi_rm_iret
 		call_real_mode:
-		push eax
 		call dpmi_call_rm
-		pop eax
-
-cmp ax,302h
-jnz no_debug_dpmi14
-ASSUME ES:txcode32
-push ds es
-	mov     ds,cs:D16_SEL
-	mov     es,cs:D32_SEL
-push eax
-mov al,'|'
-call debug32_char
-mov al,'p'
-call debug32_char
-;mov eax,ss:[esp+15*4]
-mov eax,txcode32
-shl eax,4
-mov eax,es:[eax+offset tmp_esi]
-mov eax,fs:[eax+2*2]
-call debug32_reg
-pop eax
-pop es ds
-no_debug_dpmi14:
 
 		; Copy stack parameters in RM stack back to PM stack
 		pop		ecx		; ECX = Number of stack parameter words
@@ -253,7 +202,7 @@ no_debug_dpmi14:
         pop     edi es
         mov     ds,cs:D16_SEL
         ASSUME  DS:txdata
-        mov     esi,offset dpmi_rm_regs_struc
+        mov     esi,offset dpmi_rm_call_struc
         mov     ecx,(size Tdpmi_rm_regs)/2
         cld
         rep     movsw
@@ -265,39 +214,18 @@ no_debug_dpmi14:
 		ASSUME	DS:txcode
 		pushfd
 		cli
-		mov		dx,ds:[ebx+dpmi_stack_post_increment]
+		mov		edx,ds:[ebx+dpmi_stack_post_increment]
 		add     word ptr ds:[ebx+dpmi_stack_frame],dx
 		popfd
 		
+		; Restore post-increment, as this call is reentrant
+		pop	ds:[ebx+dpmi_stack_post_increment]
         ; restauramos los registros
 		pop gs fs es ds
         popad
 
-cmp ax,302h
-jnz no_debug_dpmi15
-ASSUME ES:txcode32
-push ds es
-	mov     ds,cs:D16_SEL
-	mov     es,cs:D32_SEL
-push eax
-mov al,'|'
-call debug32_char
-mov al,'P'
-call debug32_char
-;mov eax,ss:[esp+15*4]
-mov eax,txcode32
-shl eax,4
-mov eax,es:[eax+offset tmp_esi]
-mov eax,fs:[eax+2*2]
-call debug32_reg
-pop eax
-pop es ds
-no_debug_dpmi15:
-
-		clc
+		and byte ptr ss:[esp+2*4],0feh	; Clear carry flag
         iretd
-
-tmp_esi dd 1234h
 
 dpmi_call_rm proc
 ; INPUT: 	CX:DX -> Real mode entry point to call. Must end with "jmp set_pm_dpmi".
@@ -402,12 +330,13 @@ dos_alloc_error:
         pop     ecx
         add     esp,4
         pop     ds
-;        or      byte ptr ss:[esp+4*2],1 ; CF = 1 por si error
+        or      byte ptr ss:[esp+4*2],1 ; CF = 1 por si error
         iretd
 no_dos_heap_error:
         pop     ecx ebx ds
         mov     ax,8                    ; error 8 = not enough memory
         xor     ebx,ebx                 ; 0 paragraphs available
+        or      byte ptr ss:[esp+4*2],1 ; CF = 1 por si error
         iretd
 ;컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴�
 dos_mem_free:
@@ -421,7 +350,7 @@ dos_mem_free:
         shl     ebx,4
         call    free
         pop     ecx ebx eax ds
-        and     byte ptr ss:[esp+4*2],0FCh
+        and     byte ptr ss:[esp+4*2],0FEh
         iretd
 no_dos_heap_error1:
         pop     ecx ebx eax ds
@@ -449,7 +378,7 @@ dos_mem_resize:
         shr     ebx,4
         mov     edx,ebx
         pop     ecx eax ds
-        and     byte ptr ss:[esp+4*2],0FCh
+        and     byte ptr ss:[esp+4*2],0FEh
         iretd
 no_dos_heap_error2:
         pop     edx ecx eax ds
@@ -479,7 +408,7 @@ ext_mem_info:
         add     eax,offset extended_heap_info
         call    getmeminfo
         mov     es:[edi],eax
-        and     byte ptr ss:[esp+4*6],0FCh
+        and     byte ptr ss:[esp+4*6],0FEh
         no_ext_heap_error:
         pop     ecx ebx eax ds
         iretd

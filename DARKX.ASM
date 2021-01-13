@@ -13,7 +13,7 @@ NEW_IRQ0_IRQ7_BASE	EQU 50h
 PM_STACKSIZE    EQU 1000h       ; 16 Kb
 RM_STACKSIZE    EQU 1000h       ; 16 Kb
 
-DPMI_MAX_REENTRIES EQU 10
+DPMI_MAX_REENTRIES EQU 8		; RM_STACKSIZE*2/DPMI_MAX_REENTRIES must be multiple of 4
 
 ; TASM 3.1 no ensambla bien los PUSH's de offsets de 32 bits
 pushd MACRO address_32
@@ -140,9 +140,8 @@ TXDATA  SEGMENT USE16 'DATA'
 	dpmi_32b_error          db "DPMI does not support 32bit programs!$"
 	dpmi_init_error         db "Error initializing DPMI!$"
 
-        dpmi_rm_call_struc      LABEL
-                                dd 8 dup(?)
-                                dw 9 dup(?)
+	ALIGN 4		; Align to 4-byte boundary so this registers can be loaded with popad
+    dpmi_rm_call_struc      Tdpmi_rm_regs<>
 
 	dpmi_private_buffer     dw ?
 
@@ -208,40 +207,6 @@ TXDATA  SEGMENT USE16 'DATA'
 	; Swithing back to protected mode does dpmi_stack_info_offset -= size Tstack_info
 	dpmi_stack_info_offset	dd 0
 	dpmi_stack_info			Tstack_info DPMI_MAX_REENTRIES dup(<>)
-
-	dpmi_pm_eax             dd 0
-	dpmi_pm_ebx             dd 0
-	dpmi_pm_ecx             dd 0
-	dpmi_pm_edx             dd 0
-	dpmi_pm_esi             dd 0
-	dpmi_pm_edi             dd 0
-	dpmi_pm_ebp             dd 0
-	dpmi_pm_eflags          dd 0
-	dpmi_pm_ds				dw ?
-	dpmi_pm_es				dw ?
-	dpmi_pm_fs				dw ?
-	dpmi_pm_gs				dw ?
-	dpmi_pm_esp				dd ?
-	dpmi_pm_ss				dw ?
-	
-    dpmi_rm_regs_struc           LABEL
-	dpmi_real_edi                dd 0
-	dpmi_real_esi                dd 0
-	dpmi_real_ebp                dd 0
-                            dd 0    ; reserved
-	dpmi_real_ebx                dd 0
-	dpmi_real_edx                dd 0
-	dpmi_real_ecx                dd 0
-	dpmi_real_eax                dd 0
-    dpmi_real_flags              dw 0
-    dpmi_real_es                 dw 0
-    dpmi_real_ds                 dw 0
-    dpmi_real_fs                 dw 0
-    dpmi_real_gs                 dw 0
-    dpmi_real_ip                 dw 0
-	dpmi_real_cs					dw 0
-    dpmi_real_sp                 dw 0
-	dpmi_real_ss					dw 0
 
 	set_pm_address          dw offset set_pm_raw
 
@@ -448,6 +413,12 @@ init_pm:
 ;        xor     ax,2E32h
 ;        dec     dx
 ;        xor     ax,2e32h
+
+push ebx
+mov bh,15
+xor bl,bl
+call debug16_move_cursor
+pop ebx
 
 	; presentamos el Copyright y el t죜ulo
         push    ds
@@ -675,15 +646,12 @@ init_pm:
 ; RUTINA DE SALTO A PROTEGIDO PARA TODOS LOS SISTEMAS (MODO REAL)
 ;컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴�
 set_pm:
-        pushf
-        cli
+	pushf
+	cli
 	push    txdata
 	pop     ds
-        pop     word ptr real_flags
-        mov     real_eax,eax
-;        mov     ax,word ptr pm_eflags
-;        and     ax,1 SHL 9          ; IF will be 1 if activated in any mode
-;        or      word ptr real_flags,ax
+	pop     word ptr real_flags
+	mov     real_eax,eax
 	mov     real_ebx,ebx
 	mov     real_ecx,ecx
 	mov     real_edx,edx
@@ -693,21 +661,9 @@ set_pm:
 	jmp     set_pm_address
 
 set_pm_dpmi:
-        pushf
-        cli
+	cli
 	push    txdata
 	pop     ds
-        pop     word ptr dpmi_real_flags
-        mov     dpmi_real_eax,eax
-;        mov     ax,word ptr pm_eflags
-;        and     ax,1 SHL 9          ; IF will be 1 if activated in any mode
-;        or      word ptr real_flags,ax
-	mov     dpmi_real_ebx,ebx
-	mov     dpmi_real_ecx,ecx
-	mov     dpmi_real_edx,edx
-	mov     dpmi_real_esi,esi
-	mov     dpmi_real_edi,edi
-	mov     dpmi_real_ebp,ebp
 	jmp     set_pm_address
 
 
@@ -1512,12 +1468,6 @@ c32_init:
         ; Ponemos en el PSP el selector del segmento de vars. de entorno
         mov     bx,cs:ENVRN_SEL
         mov     es:[2Ch],bx
-
-push ebx
-mov bh,15
-xor bl,bl
-call debug32_move_cursor
-pop ebx
 
         push    dword ptr cs:CODE_SEL
         push    eax
