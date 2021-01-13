@@ -72,24 +72,28 @@ dos_int         proc
 	push    edi
 	push    bp
 	push    bp
-        db      66h             ; <----- para WORD en segmento de 32 bits
-        pushf
+;	db      66h             ; <----- para WORD en segmento de 32 bits
+	pushf
 	pushad
 	mov     edi,esp
-        mov     ax,300h
-        mov     bl,21h
+	mov     ax,300h
+	mov     bl,21h
 	xor     ecx,ecx
-	int     31h
+	int     31h	
+	; Either CF from int 31h or from DOS int is reported
+	xor		al,al
+	adc		al,0
+	or		byte ptr ss:[esp.rm_flags],al
 	popad
 	popf
-	lea     esp,[esp+4*4]   ; as¡ no modificamos los flags
+	lea     esp,[esp+(4+4)*2]	; does not change flags
 	pop     es
 	ret
 dos_int         endp
 
 copy_file_name  proc
 ; INPUT -> DS:EDX -> ASCIIZ string
-        push    edx es edi ecx eax 
+	push    edx es edi ecx eax 
 	; copiamos el nombre del archivo a 'print_buffer'
 	mov     es,cs:D32_SEL
 	mov     edi,txcode32
