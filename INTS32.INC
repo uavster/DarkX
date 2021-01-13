@@ -7,16 +7,6 @@ real_int:
         or      ss:[esp],ebx        
         popfd
 
-push eax
-mov al,'|'
-call debug32_char
-mov al,'S'
-call debug32_char
-;mov eax,esp
-;;add eax,4*2
-;call debug32_reg
-pop eax
-
 	; nos guardamos los segmentos
 	ASSUME  DS:txdata
 	mov     bx,ds
@@ -96,6 +86,12 @@ real_irq:
         mov     dword ptr prot_code_address,offset back_from_irq16
         mov     pm_ss,ss
         mov     pm_esp,esp
+mov al,'F'
+call debug32_char
+movzx eax,pm_ss
+shl eax,4
+add eax,pm_esp
+call debug32_reg
         pushfd
         push    dword ptr cs:C16_SEL
         push    dword ptr ret_real_address
@@ -105,6 +101,12 @@ real_irq:
         mov     ds,cs:D16_SEL
         mov     ss,pm_ss
         mov     esp,pm_esp
+mov al,'G'
+call debug32_char
+movzx eax,pm_ss
+shl eax,4
+add eax,pm_esp
+call debug32_reg
         pop     dword ptr prot_code_address+4
         pop     dword ptr prot_code_address
         mov     ds,cs:D32_SEL
