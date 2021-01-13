@@ -78,6 +78,7 @@ callback_manager:
         mov     word ptr cs:current_stackframe,sp
         mov     word ptr cs:current_stackframe+2,ss
 
+push eax ebx
 mov al,'|'
 call debug16_char
 mov al,'J'
@@ -87,11 +88,12 @@ call debug16_reg
 mov al,':'
 call debug16_char
 xor eax,eax
-mov ax,ss
+mov ax,word ptr cs:pila_real+2
 shl eax,4
-movzx esp,sp
-add eax,esp
+movzx ebx,word ptr cs:pila_real
+add eax,ebx
 call debug16_reg
+pop ebx eax
 
         jmp     set_pm_address
 
@@ -119,13 +121,6 @@ call debug16_reg
 ;mov	byte ptr ds:[4*160+2],ah
 ;mov	byte ptr ds:[4*160+3],3eh
 
-mov al,'|'
-call debug16_char
-mov al,'K'
-call debug16_char
-movzx eax,cs:new_flags
-call debug16_reg
-
         ; recuperamos el estado de la CPU
         pop     gs fs es ds
         popad
@@ -133,8 +128,40 @@ call debug16_reg
 
         pop     ax
 
+push	ax
+mov al,'|'
+call debug16_char
+mov al,'K'
+call debug16_char
+movzx eax,cs:new_flags
+call debug16_reg
+mov al,':'
+call debug16_char
+xor eax,eax
+mov ax,ss
+shl eax,4
+movzx esp,sp
+add eax,esp
+add eax,2
+call debug16_reg
+pop ax
+
         ; restauramos SS,SP,CS,IP y FLAGS de la estructura de modo real        mov
         lss     sp,cs:new_stack
+
+
+push	ax
+mov al,':'
+call debug16_char
+xor eax,eax
+mov ax,ss
+shl eax,4
+movzx esp,sp
+add eax,esp
+add eax,2
+call debug16_reg
+pop ax
+
         push    cs:new_flags
 		push	dword ptr cs:new_code
 		iret
