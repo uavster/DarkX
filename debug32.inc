@@ -54,6 +54,9 @@ if DEBUG_ON
 		jnz in_col32
 			mov debug_col,0
 			inc debug_row
+			cmp debug_row,40
+			jnz in_col32
+				mov debug_row,0
 		in_col32:
 	loop print_debug32
 	popad
@@ -90,6 +93,9 @@ if DEBUG_ON
 	jnz in_col_char32
 		mov debug_col,0
 		inc debug_row
+		cmp debug_row,40
+		jnz in_col_char32
+			mov debug_row,0
 	in_col_char32:
 	popad
 	pop es ds

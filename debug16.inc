@@ -118,6 +118,9 @@ if DEBUG_ON
 		jnz in_col16
 			mov debug_col,0
 			inc debug_row
+			cmp debug_row,40
+			jnz in_col16
+				mov debug_row,0
 		in_col16:
 	loop print_debug16
 	popad
@@ -155,6 +158,9 @@ if DEBUG_ON
 	jnz in_col_char16
 		mov debug_col,0
 		inc debug_row
+			cmp debug_row,40
+			jnz in_col_char16
+				mov debug_row,0
 	in_col_char16:
 	popad
 	pop es ds
