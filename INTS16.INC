@@ -64,9 +64,9 @@ dpmi_rm_iret:
         pop     es ds fs gs
         lss     sp,dword ptr ss:[dpmi_rm_call_struc.rm_sp]
 
-		; Make sure that interrupts stay disabled before restoring flags
+		; We have now a stack. Restoring the passed flags is now OK, even if interrupts are enabled.
 		push	cs:dpmi_trash
-		and		byte ptr ss:[esp],0feh
+;		and		byte ptr ss:[esp],0feh
 		popf
 
 		pushf	; Interrupt stack frame
@@ -108,15 +108,15 @@ rm_int:
         ; reajustamos la pila para int en modo real
         lss     sp,dword ptr cs:stack_frame
         xor     bx,bx
-        mov     cs:trash,ds
+;        mov     cs:trash,ds
         mov     ds,bx
         mov     bl,cs:int_num
         shl     bx,2
         mov     eax,[bx]
         mov     cs:rm_proc_address,eax
-        mov     ds,cs:trash
+;        mov     ds,cs:trash
 
-        push    ds
+;        push    ds
 
 		mov     ax,txdata
 		mov     ds,ax
@@ -129,9 +129,9 @@ rm_int:
 		mov     esi,pm_esi
 		mov     edi,pm_edi
 		mov     ebp,pm_ebp
-		push    pm_eflags
-        popfd
-        pop     ds
+		push    word ptr pm_eflags
+        popf
+;        pop     ds
 
         pushf           ; para formar un stack frame de interrupci¢n
         call    dword ptr cs:rm_proc_address
