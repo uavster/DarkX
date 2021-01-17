@@ -1,11 +1,67 @@
 ;ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
-real_int:
-        push    ebx
-        mov     ebx,ss:[esp+4*4]
-        pushfd
-        and     ebx,1 SHL 9
-        or      ss:[esp],ebx        
-        popfd
+real_int:	
+	; Save intended RM registers in the stack, except selectors, which are meaningless in RM.
+	push    dword ptr 0		; SS:SP = 0:0 tells DPMI to provide a stack
+	lea		esp,[esp-2*6]	; CS:IP (ignored), GS, FS, DS, ES
+	pushf
+	pushad
+	
+	; ES:EDI -> RM registers
+	mov     edi,esp
+	push	es
+	push    ss
+	pop     es
+	mov     bl,al
+	mov		eax,ss:[esp+size Tdpmi_rm_regs+4]	; RM reg struc + ES
+	mov		es:[edi.rm_eax],eax
+	mov     ax,300h
+	xor     ecx,ecx
+	int     31h
+	pop		es
+	
+	; Restore RM registers and flags
+	mov		ax,ss:[esp+size Tpushad_regs]
+	mov		ss:[esp+size Tdpmi_rm_regs+4+2*4],ax	; DPMI REGS, EAX, IP, CS, ->FLAGS<-
+	popad
+	lea     esp,[esp+(size Tdpmi_rm_regs-size Tpushad_regs)+4]	; POP FLAGS, SS:SP, CS:IP (ignored), GS, FS, DS, ES, EAX (does not change flags)
+
+	iretd
+	
+real_irq:
+	push 	ds es fs gs
+	pushad
+
+	; Save intended RM registers in the stack, except selectors, which are meaningless in RM.
+	push    dword ptr 0		; SS:SP = 0:0 tells DPMI to provide a stack
+	lea		esp,[esp-2*6]	; CS:IP (ignored), GS, FS, DS, ES
+	pushf
+	pushad
+	
+	; ES:EDI -> RM registers
+	mov     edi,esp
+	push    ss
+	pop     es
+	mov     bl,al
+	mov     ax,300h
+	xor     ecx,ecx
+	int     31h
+	
+	; Restore RM registers and flags
+	lea     esp,[esp+size Tdpmi_rm_regs]	; POP RM REGS
+
+	popad
+	pop 	gs fs es ds
+	pop		eax
+
+	iretd 
+
+real_int_old:
+	push    ebx
+;        mov     ebx,ss:[esp+4*4]
+;        pushfd
+;        and     ebx,1 SHL 9
+;        or      ss:[esp],ebx        
+;        popfd
 
 	; nos guardamos los segmentos
 	ASSUME  DS:txdata
@@ -18,8 +74,8 @@ real_int:
 	; ponemos el int_num
 	mov     ds,cs:D32_sel
 	mov     ebx,txcode
-        lea     ebx,[ebx*8]     ; as¡, no modificamos los flags
-        lea     ebx,[ebx*2]
+	lea     ebx,[ebx*8]     ; as¡, no modificamos los flags
+	lea     ebx,[ebx*2]
 	ASSUME  DS:txcode
 	mov     [ebx+int_num],al
 	pop     ebx
@@ -64,7 +120,7 @@ pm_ret_point:
 				; direccionar RET_INFO
         iretd
 ;ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
-real_irq:
+real_irq_old:
 ; INPUT -> AL = interrupt number
         pushad
         push    ds es fs gs
@@ -115,7 +171,7 @@ call debug32_reg
         ASSUME  DS:txcode
         pop     dword ptr [ecx+saltito+1]
         ASSUME  DS:txdata
-        pop     gs fs es ds		; TODO: crash point when only callbacks are enabled, and calling old IRQ is enabled.
+        pop     gs fs es ds
         popad
         pop     eax
         iretd
