@@ -1,8 +1,14 @@
 callback_pm:
         cli
         ; preparamos los datos de entrada para el call-back
+		; Coming from RM, selectors may have invalid values.
+		; If they are pushed and poped in an interrupt, for instance,
+		; we may get a general protection fault. Set them to a safe value.
         mov     ax,cs:D32_SEL
         mov     ds,ax
+		mov		es,ax
+		mov		fs,ax
+		mov		gs,ax
         mov     ss,ax
         mov     ebx,txcode
         shl     ebx,4
@@ -58,6 +64,7 @@ call debug32_char
 mov eax,esi
 call debug32_reg
 pop ebx eax
+
         push    ds ebx
         pushfd          ; procedure will return with IRETD
         call    fword ptr [ecx+eax+callback_data.pm_proc_to_call]
