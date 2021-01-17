@@ -81,7 +81,7 @@ dos_int         proc
 	xor     ecx,ecx
 	int     31h	
 	; Either CF from int 31h or from DOS int is reported
-	xor		al,al
+	mov		al,0	; Does not change CF
 	adc		al,0
 	or		byte ptr ss:[esp.rm_flags],al
 	popad
