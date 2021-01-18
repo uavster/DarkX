@@ -19,9 +19,9 @@ real_int:
 	int     31h
 	pop		es
 	
-	; Restore RM registers and flags
-	mov		ax,ss:[esp+size Tpushad_regs]
-	mov		ss:[esp+size Tdpmi_rm_regs+4+2*4],ax	; DPMI REGS, EAX, IP, CS, ->FLAGS<-
+	; Restore RM registers and flags (lowest byte only for "safe" flags)
+	mov		al,ss:[esp+size Tpushad_regs]
+	mov		ss:[esp+size Tdpmi_rm_regs+4+2*4],al	; DPMI REGS, EAX, IP, CS, ->FLAGS<-
 	popad
 	lea     esp,[esp+(size Tdpmi_rm_regs-size Tpushad_regs)+4]	; POP FLAGS, SS:SP, CS:IP (ignored), GS, FS, DS, ES, EAX (does not change flags)
 

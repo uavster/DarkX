@@ -839,7 +839,7 @@ init_data       proc
         cld
 	gen_idt:
 		stosd
-		mov     dword ptr es:[di],8E00h
+		mov     dword ptr es:[di],8E00h	; TODO: Should be 8F00h for trap gates (all are interrupt gates now, which clears IF even for int 21h)
 		add     di,4
 		add     ax,8
 	dec     cl
