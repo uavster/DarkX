@@ -154,6 +154,9 @@ make_rm_int:
         no_stack_parameters:
 
         ; Copy DPMI structure to somewhere below 1 Mb for RM access
+		; TODO: dpmi_rm_call_struc is the same for all reentrants, which breaks for trap gates.
+		; TODO: Instead, push everything to the RM stack. 
+		; TODO: The question is how to pass SS:SP to RM if it's not in dpmi_rm_call_struc. Try dpmi_stack_frame in first MB.		
         pop     ecx edi esi ds
         push    ds esi edi ecx
         mov     edi,offset dpmi_rm_call_struc

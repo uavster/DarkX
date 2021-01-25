@@ -60,7 +60,7 @@ dpmi_rm_iret:
 		; Set up all registers from passed DPMI structure
         mov     sp,offset dpmi_rm_call_struc
         popad
-        pop     cs:dpmi_trash        ; Do not pop passed flags yet, since interrupts cannot be enabled
+        pop     cs:dpmi_trash        ; Do not pop passed flags, since interrupts cannot be enabled yet
         pop     es ds fs gs
         lss     sp,dword ptr ss:[dpmi_rm_call_struc.rm_sp]
 
@@ -90,11 +90,11 @@ dpmi_rm_iret:
 		; Restore stack in case it's needed for the mode switch
 		lss		sp,dword ptr ss:[dpmi_rm_call_struc.rm_sp]
 
-push eax
-mov al,'$'
-call debug16_char
-pop eax		
-call debug16_reg
+;push eax
+;mov al,'$'
+;call debug16_char
+;pop eax		
+;call debug16_reg
 
 		; Back to PM
 		jmp     set_pm_dpmi

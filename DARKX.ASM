@@ -833,16 +833,29 @@ init_data       proc
 	mov     ax,1 SHL 3      ; C32_SEL con RAW/XMS y VCPI
 	shl     eax,16
 	ASSUME  DS:txcode32
-        mov     ax,offset interrup_redir
-        mov     di,offset idt
+	mov     ax,offset interrup_redir
+	mov     di,offset idt
 	xor     cl,cl
-        cld
+	cld
+	; Interrupt gates clear IF automatically; we use them for system and hardware interrupts.
+	; Trap gates leave IF as is; we use them for software services, like DOS and DPMI.
 	gen_idt:
 		stosd
-		mov     dword ptr es:[di],8E00h	; TODO: Should be 8F00h for trap gates (all are interrupt gates now, which clears IF even for int 21h)
+;		cmp		cl,21h
+;		jbe		gen_interrupt_gate
+		cmp		cl,NEW_IRQ0_IRQ7_BASE
+		jb		gen_trap_gate
+		cmp		cl,NEW_IRQ0_IRQ7_BASE+8
+		jb		gen_interrupt_gate
+		gen_trap_gate:
+				mov     dword ptr es:[di],8F00h
+				jmp		gate_generated
+		gen_interrupt_gate:
+				mov		dword ptr es:[di],8E00h
+		gate_generated:
 		add     di,4
 		add     ax,8
-	dec     cl
+	inc     cl
 	jnz     gen_idt
 
         ASSUME  ES:txcode32
