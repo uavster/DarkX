@@ -40,6 +40,9 @@ ENDS
 ; Call-Back Management procedure with IMS technology (Infinite Mode Switch)
 ;컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴�
 callback_manager:
+        ; protegemos el stack switching
+        cli
+
         ; guardamos el puntero de pila actual en modo real
         mov     word ptr cs:pila_real,sp        
         mov     word ptr cs:pila_real+2,ss
@@ -54,9 +57,6 @@ callback_manager:
         pushfd
         pushad
         push    ds es fs gs
-
-        ; protegemos el stack switching
-        cli
 
         ; ahora que podemos cambiar los flags, cambiamos 'pila_real'
         add     word ptr cs:pila_real,2         ; POP AX
