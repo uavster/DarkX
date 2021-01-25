@@ -77,11 +77,11 @@ pop ebx eax
 
         ASSUME  DS:txcode
         mov     eax,dword ptr es:[edi.rm_ip]
-        mov     [ebx+new_code],eax
+        mov     ds:[ebx+new_code],eax
         mov     eax,dword ptr es:[edi.rm_sp]
-        mov     [ebx+new_stack],eax
+        mov     ds:[ebx+new_stack],eax
         mov     ax,es:[edi.rm_flags]
-        mov     [ebx+new_flags],ax
+        mov     ds:[ebx+new_flags],ax
 
 mov al,'|'
 call debug32_char
