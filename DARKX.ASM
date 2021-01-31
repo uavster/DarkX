@@ -13,7 +13,7 @@ NEW_IRQ0_IRQ7_BASE	EQU 50h
 PM_STACKSIZE    EQU 1000h       ; 16 Kb
 RM_STACKSIZE    EQU 1000h       ; 16 Kb
 
-DPMI_MAX_REENTRIES EQU 8		; RM_STACKSIZE*2/DPMI_MAX_REENTRIES must be multiple of 4
+DPMI_MAX_REENTRIES EQU 8		; RM_STACKSIZE*4/DPMI_MAX_REENTRIES must be multiple of 4
 
 ; TASM 3.1 no ensambla bien los PUSH's de offsets de 32 bits
 pushd MACRO address_32

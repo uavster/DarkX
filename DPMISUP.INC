@@ -87,7 +87,7 @@ tx_int31h:
 ;컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴�
 ; Real Mode Services for Interrupt and Far Call execution
 ;컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴�
-DPMI_TOTAL_STACK_SIZE EQU 4*RM_STACKSIZE/2
+DPMI_TOTAL_STACK_SIZE EQU 4*RM_STACKSIZE
 DPMI_REENTRY_STACK_SIZE EQU DPMI_TOTAL_STACK_SIZE/DPMI_MAX_REENTRIES
 
 make_rm_int:
