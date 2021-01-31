@@ -93,8 +93,8 @@ DPMI_REENTRY_STACK_SIZE EQU DPMI_TOTAL_STACK_SIZE/DPMI_MAX_REENTRIES
 make_rm_int:
         pushad
 		push	ds es fs gs
-		sub		esp,4
-		mov		ebp,esp		; Space for dpmi_stack_post_increment
+		sub		esp,4+4
+		mov		ebp,esp		; Space for dpmi_stack_post_increment and dpmi_actual_stack_frame
 		mov		ds,cs:D32_SEL
         push    es edi
 
@@ -124,20 +124,23 @@ make_rm_int:
 				mov     word ptr ds:[ebx+dpmi_stack_frame+2],txpila_real
 				mov		edx,dword ptr ds:[ebx+dpmi_stack_frame]
         stack_provided:
-		popfd
+		sub		dx,size Tdpmi_rm_regs	; Reserve space for client-passed RM registers
 		mov		dword ptr es:[edi.rm_sp],edx
+		xchg	ds:[ebx+dpmi_actual_rm_stack_frame],edx
+		mov		ss:[ebp+4],edx			; Push previous RM stack frame to current PM stack
+		popfd
 		
         ; Copy CX words from PM stack to RM stack
 		lea		esi,ss:[esp+size Tpushad_regs+(4+2+3)*4]	; Stack before int 31h, i.e. pop edi es gs fs es ds popad pop eip cs popfd
 		push	esi ecx
         or      cx,cx
         jz      no_stack_parameters
-				movzx   ecx,cx
 				push    ss
 				pop     ds
 				; Simulate pushing all stack parameters (subtract twice as ECX is number of parameter WORDS)
-				sub		edx,ecx
-				sub		edx,ecx
+				mov		edx,ds:[ebx+dpmi_actual_rm_stack_frame]
+				sub		dx,cx
+				sub		dx,cx
 				mov		dword ptr es:[edi.rm_sp],edx
 				mov     es,cs:D32_SEL
 				ASSUME  ES:txcode
@@ -153,20 +156,26 @@ make_rm_int:
 				ASSUME  ES:txdata
         no_stack_parameters:
 
-        ; Copy DPMI structure to somewhere below 1 Mb for RM access
-		; TODO: dpmi_rm_call_struc is the same for all reentrants, which breaks for trap gates.
-		; TODO: Instead, push everything to the RM stack. 
-		; TODO: The question is how to pass SS:SP to RM if it's not in dpmi_rm_call_struc. Try dpmi_stack_frame in first MB.		
-        pop     ecx edi esi ds
+        ; Copy DPMI structure to RM stack (below 1 Mb) for access from RM
+        pop     ecx edi esi ds	; DS:ESI -> client-passed RM registers
         push    ds esi edi ecx
-        mov     edi,offset dpmi_rm_call_struc
-        mov     es,cs:D16_SEL
+		; Push RM register to RM stack frame
+		mov		edi,dword ptr ds:[esi.rm_sp]
+		mov		es,cs:D32_SEL
+		movzx	edx,di
+		and		edi,0ffff0000h
+		shr		edi,16-4
+		add		edi,edx		; ES:EDI -> RM stack, DS:SI -> client-passed RM registers
         mov     ecx,(size Tdpmi_rm_regs)/2
         cld
         rep     movsw
 
 		; Call real mode routine.
-		; Inside this routine, and in RM, the DPMI input structure can be found in dpmi_rm_call_struc.
+		; Inside this routine, and in RM, the DPMI input structure is pointed by txcode:dpmi_actual_rm_stack_frame, ready to pop.
+		; The RM call will be called with the following stack:
+		; RM_REGS.RM_SS:RM_SP ->			Client-passed PM stack words
+		; dpmi_actual_rm_stack_frame ->		RM registers
+		; 						 			RM stack
 		mov cx,txcode
 		cmp	ax,301h
 		jnz call_with_iret
@@ -182,7 +191,7 @@ make_rm_int:
 		pop		esi		; SS:ESI -> Stack before int 31h
 		pop 	edi es	; ES:EDI -> Passed RM struct with registers
 		push	es edi
-		mov		ebx,dword ptr es:[edi.rm_sp]	; EBX = segment:offset of RM stack
+		mov		ebx,dword ptr es:[edi.rm_sp]
         push	ss
 		pop		es
 		mov		edi,esi	; ES:EDI -> Stack before int 31h
@@ -194,8 +203,6 @@ make_rm_int:
 				and     ebx,0FFFF0000h
 				shr     ebx,16-4
 				add     esi,ebx
-				sub		esi,ecx
-				sub		esi,ecx
 				cld
 				rep     movsw
 				ASSUME  DS:txdata
@@ -203,9 +210,15 @@ make_rm_int:
 		
         ; copiamos todos los valores obtenidos en la estructura
         pop     edi es
-        mov     ds,cs:D16_SEL
-        ASSUME  DS:txdata
-        mov     esi,offset dpmi_rm_call_struc
+        mov     ds,cs:D32_SEL
+        ASSUME  DS:txcode
+		mov		ebx,txcode
+		shl		ebx,4
+        mov     esi,ds:[ebx+dpmi_actual_rm_stack_frame]
+		movzx	ebx,si
+		and		esi,0ffff0000h
+		shr		esi,16-4
+		add		esi,ebx
         mov     ecx,(size Tdpmi_rm_regs)/2
         cld
         rep     movsw
@@ -215,14 +228,13 @@ make_rm_int:
 		mov		ebx,txcode
 		shl		ebx,4
 		ASSUME	DS:txcode
-		pushfd
 		cli
 		mov		edx,ds:[ebx+dpmi_stack_post_increment]
 		add     word ptr ds:[ebx+dpmi_stack_frame],dx
-		popfd
 		
 		; Restore post-increment, as this call is reentrant
 		pop	ds:[ebx+dpmi_stack_post_increment]
+		pop ds:[ebx+dpmi_actual_rm_stack_frame]
         ; restauramos los registros
 		pop gs fs es ds
         popad
@@ -265,7 +277,7 @@ dpmi_call_rm proc
 	add ds:dpmi_stack_info_offset,size Tstack_info
 	mov ds:[eax.stack_esp],esp
 	mov ds:[eax.stack_ss],ss
-	
+
 	; Far jump to RM entry point
     push dword ptr cs:C16_SEL
     pushd ret_real

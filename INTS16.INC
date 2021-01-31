@@ -5,42 +5,58 @@
 dpmi_rm_retf:
 		; This is called after a PM-to-RM mode change. Therefore, interrupts are disabled,
 		; which is what we need as we mess with the stack.
-        ASSUME  SS:txdata
-        mov     ax,txdata
-        mov     ss,ax
+		lss		sp,cs:dpmi_actual_rm_stack_frame		
+		mov		bp,ss
+		mov		ds,bp
 		
-		; Get call address
-        mov     eax,dword ptr ss:[dpmi_rm_call_struc.rm_ip]
-        mov		dword ptr cs:dpmi_rm_proc_address,eax
-
 		; Set up all registers from passed DPMI structure
-        mov     sp,offset dpmi_rm_call_struc
         popad
-        pop     cs:dpmi_trash        ; Do not pop passed flags yet, since we don't have a stack (interrupts could be enabled)
-        pop     es ds fs gs
-        lss     sp,dword ptr ss:[dpmi_rm_call_struc.rm_sp]
+		mov		bp,sp
+		sub		bp,size Tpushad_regs
+		mov 	es,ds:[bp.rm_es]
+		mov		fs,ds:[bp.rm_fs]
+		mov		gs,ds:[bp.rm_gs]
+		lss		sp,dword ptr ds:[bp.rm_sp]	; Set RM stack
 
-		; We have now a stack. Restoring the passed flags is now OK, even if interrupts are enabled.
-		push	cs:dpmi_trash
-		popf
+		; Set return address
+		push	cs
+		push	offset after_rm_call
 		
-		call    dword ptr cs:dpmi_rm_proc_address
+		; Set RM call address
+		push	ds:[bp.rm_flags]
+		push	ds:[bp.rm_cs]
+		push	ds:[bp.rm_ip]
 		
+		; Recover RM ds and bp
+		push	ds:[bp.rm_ds]
+		mov		ebp,ds:[bp.rm_ebp]
+		pop		ds
+
+		; Call RM proc
+		iret
+		
+		after_rm_call:
 		; The target RM procedure must leave the stack as it found it.
 		
 		; Disable interrupts before messing with the stack
+		push	ds bp
 		pushf
-		pop		cs:dpmi_trash
 		cli
+		mov		bp,word ptr cs:dpmi_actual_rm_stack_frame
+		mov		ds,word ptr cs:dpmi_actual_rm_stack_frame+2
+		pop		ds:[bp.rm_flags]
+		pop		bp ds
 		
 		; Copy registers back to DPMI structure
-		lea		sp,ss:[dpmi_rm_call_struc.rm_ip]
+		lss		sp,cs:dpmi_actual_rm_stack_frame
+		add		sp,offset rm_ip
 		push	gs fs ds es
-		push	cs:dpmi_trash
+		sub		sp,2	; jump over flags
 		pushad
 
 		; Restore stack in case it's needed for the mode switch
-		lss		sp,dword ptr ss:[dpmi_rm_call_struc.rm_sp]
+		mov		bp,sp
+		lss		sp,dword ptr ss:[bp.rm_sp]
 		
 		; Back to PM
 		jmp     set_pm_dpmi
@@ -49,53 +65,59 @@ dpmi_rm_retf:
 dpmi_rm_iret:
 		; This is called after a PM-to-RM mode change. Therefore, interrupts are disabled,
 		; which is what we need as we mess with the stack.
-        ASSUME  SS:txdata
-        mov     ax,txdata
-        mov     ss,ax
- 		
-		; Get call address
-        mov		eax,dword ptr ss:[dpmi_rm_call_struc.rm_ip]
-        mov     dword ptr cs:dpmi_rm_proc_address,eax
-
+		lss		sp,cs:dpmi_actual_rm_stack_frame		
+		mov		bp,ss
+		mov		ds,bp
+		
 		; Set up all registers from passed DPMI structure
-        mov     sp,offset dpmi_rm_call_struc
         popad
-        pop     cs:dpmi_trash        ; Do not pop passed flags, since interrupts cannot be enabled yet
-        pop     es ds fs gs
-        lss     sp,dword ptr ss:[dpmi_rm_call_struc.rm_sp]
+		mov		bp,sp
+		sub		bp,size Tpushad_regs
+		mov 	es,ds:[bp.rm_es]
+		mov		fs,ds:[bp.rm_fs]
+		mov		gs,ds:[bp.rm_gs]
+		lss		sp,dword ptr ds:[bp.rm_sp]	; Set RM stack
 
-		; We have now a stack. Restoring the passed flags is now OK, even if interrupts are enabled.
-		push	cs:dpmi_trash
-;		and		byte ptr ss:[esp],0feh
-		popf
+		pushf
+		push	cs
+		push	offset after_rm_int		; Return address
+		
+		and		ds:[bp.rm_flags],not 0300h
+		push	ds:[bp.rm_flags]
+		push	ds:[bp.rm_cs]
+		push	ds:[bp.rm_ip]			; RM call address
+		
+		; Recover RM ds, bp and flags
+		push	ds:[bp.rm_ds]
+		mov		ebp,ds:[bp.rm_ebp]
+		pop		ds
 
-		pushf	; Interrupt stack frame
-		call    dword ptr cs:dpmi_rm_proc_address	
-
+		; Call RM proc
+		iret
+		
+		after_rm_int:
 		; The target RM procedure must leave the stack as it found it.
 		
-		; Disable interrupts before messing with the stack (in case the target procedure enabled them in the stack before IRET)
+		; Disable interrupts before messing with the stack
+		push	ds bp
 		pushf
-		pop		cs:dpmi_trash
 		cli
+		mov		bp,word ptr cs:dpmi_actual_rm_stack_frame
+		mov		ds,word ptr cs:dpmi_actual_rm_stack_frame+2
+		pop		ds:[bp.rm_flags]
+		pop		bp ds
 		
 		; Copy registers back to DPMI structure
-		push	txdata
-		pop 	ss
-		lea		sp,ss:[dpmi_rm_call_struc.rm_ip]
+		lss		sp,cs:dpmi_actual_rm_stack_frame
+		add		sp,offset rm_ip
 		push	gs fs ds es
-		push	cs:dpmi_trash
+		sub		sp,2	; jump over flags
 		pushad
 
 		; Restore stack in case it's needed for the mode switch
-		lss		sp,dword ptr ss:[dpmi_rm_call_struc.rm_sp]
-
-;push eax
-;mov al,'$'
-;call debug16_char
-;pop eax		
-;call debug16_reg
-
+		mov		bp,sp
+		lss		sp,dword ptr ss:[bp.rm_sp]
+		
 		; Back to PM
 		jmp     set_pm_dpmi
 
@@ -144,11 +166,12 @@ stack_frame     dw size txpr,?
 bytes_in_stack  dw 0
 rm_proc_address dd ?
 
-dpmi_trash           		dw ?
+; DPMI host-provided RM stack
 dpmi_stack_frame     		dw DPMI_TOTAL_STACK_SIZE+DPMI_REENTRY_STACK_SIZE,?
 dpmi_bytes_in_stack			dw ?
 dpmi_rm_proc_address 		dd ?
 dpmi_stack_post_increment	dd 0
+dpmi_actual_rm_stack_frame	dd ?
 
 
 ;컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴�

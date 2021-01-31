@@ -841,8 +841,6 @@ init_data       proc
 	; Trap gates leave IF as is; we use them for software services, like DOS and DPMI.
 	gen_idt:
 		stosd
-;		cmp		cl,21h
-;		jbe		gen_interrupt_gate
 		cmp		cl,NEW_IRQ0_IRQ7_BASE
 		jb		gen_trap_gate
 		cmp		cl,NEW_IRQ0_IRQ7_BASE+8

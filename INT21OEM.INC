@@ -72,8 +72,7 @@ dos_int         proc
 	push    edi
 	push    bp
 	push    bp
-;	db      66h             ; <----- para WORD en segmento de 32 bits
-	pushf
+	pushf				; The DPMI host should clear IF and TF
 	pushad
 	mov     edi,esp
 	mov     ax,300h
@@ -160,7 +159,7 @@ generic_file_service:
 	call    copy_file_name
 	mov     edx,offset print_buffer
 	mov     ebp,txcode32
-	call    dos_int        
+	call    dos_int     
 	pushfd
 	pop     ecx
 	and     cl,1
