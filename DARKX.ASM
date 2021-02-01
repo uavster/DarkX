@@ -951,7 +951,6 @@ init_data       proc
 
 	; habilitamos el punto de entrada en RM a la rutina de interrupci¢n real
 	ASSUME  DS:txcode
-        mov     word ptr cs:saltito+1,offset rm_int
 	mov     word ptr cs:saltito+3,txcode
 	ASSUME  DS:txdata
 
@@ -1347,10 +1346,7 @@ c32_init:
         add     esp,size tx_pila
 
 	; ponemos el punto de retorno a PM para interrupciones reales
-	ASSUME  DS:txcode32
-	mov     eax,offset pm_ret_point
 	ASSUME  DS:txdata
-	mov     prot_code_address,eax
 
         mov     ax,cs:D32_SEL
 	mov     ds,ax          ; selector del segmento de datos

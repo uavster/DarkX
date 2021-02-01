@@ -42,28 +42,6 @@ callback_pm:
         mov     esp,txpila
         shl     esp,4
         add     esp,size tx_pila-4*(PM_STACKSIZE/2)  ; we are not using stack before this
-;        mov     esp,[ecx+pm_esp]
-;        mov     ss,[ecx+pm_ss]
-;or word ptr ds:[esi+4],200h
-;mov ax,word ptr ds:[esi+4]
-;int 3
-
-push eax ebx
-mov al,'|'
-call debug32_char
-mov al,'L'
-call debug32_char
-movzx eax,bp
-call debug32_reg
-mov al,':'
-call debug32_char
-mov eax,edi
-call debug32_reg
-mov al,':'
-call debug32_char
-mov eax,esi
-call debug32_reg
-pop ebx eax
 
         push    ds ebx
         pushfd          ; procedure will return with IRETD
@@ -72,8 +50,6 @@ pop ebx eax
         ; ES:EDI -> real mode call structure to restore
         pop     ebx ds
         ; preparamos CS,IP,SS,SP y FLAGS de la estructura para modo real
-;mov     byte ptr ds:[0b8000h+6*160+1],3eh
-;mov     byte ptr ds:[0b8000h+6*160],'R'
 
         ASSUME  DS:txcode
         mov     eax,dword ptr es:[edi.rm_ip]
@@ -82,21 +58,6 @@ pop ebx eax
         mov     ds:[ebx+new_stack],eax
         mov     ax,es:[edi.rm_flags]
         mov     ds:[ebx+new_flags],ax
-
-mov al,'|'
-call debug32_char
-mov al,'M'
-call debug32_char
-movzx eax,es:[edi.rm_flags]
-call debug32_reg
-mov al,':'
-call debug32_char
-mov eax,edi
-call debug32_reg
-mov al,':'
-call debug32_char
-mov eax,esi
-call debug32_reg
 
         ; saltamos a modo real de nuevo
         mov     word ptr [ebx+saltito+1],offset cback16_return

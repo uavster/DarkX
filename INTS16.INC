@@ -122,49 +122,7 @@ dpmi_rm_iret:
 		jmp     set_pm_dpmi
 
 
-;ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
-; Real Mode Interrupt execution without segment pass
-;ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
-ASSUME  DS:txdata
-rm_int:
-        ; reajustamos la pila para int en modo real
-        lss     sp,dword ptr cs:stack_frame
-        xor     bx,bx
-;        mov     cs:trash,ds
-        mov     ds,bx
-        mov     bl,cs:int_num
-        shl     bx,2
-        mov     eax,[bx]
-        mov     cs:rm_proc_address,eax
-;        mov     ds,cs:trash
-
-;        push    ds
-
-		mov     ax,txdata
-		mov     ds,ax
-
-        ; recuperamos los registros
-		mov     eax,pm_eax
-		mov     ebx,pm_ebx
-		mov     ecx,pm_ecx
-		mov     edx,pm_edx
-		mov     esi,pm_esi
-		mov     edi,pm_edi
-		mov     ebp,pm_ebp
-		push    word ptr pm_eflags
-        popf
-;        pop     ds
-
-        pushf           ; para formar un stack frame de interrupci¢n
-        call    dword ptr cs:rm_proc_address
-
-		jmp     set_pm          ; SET_PM nos grabar  el estado
-
-int_num         db ?
-trash           dw ?
-stack_frame     dw size txpr,?
-bytes_in_stack  dw 0
-rm_proc_address dd ?
+;stack_frame     dw size txpr,?
 
 ; DPMI host-provided RM stack
 dpmi_stack_frame     		dw DPMI_TOTAL_STACK_SIZE+DPMI_REENTRY_STACK_SIZE,?
@@ -172,16 +130,3 @@ dpmi_bytes_in_stack			dw ?
 dpmi_rm_proc_address 		dd ?
 dpmi_stack_post_increment	dd 0
 dpmi_actual_rm_stack_frame	dd ?
-
-
-;ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
-irq16:
-        lss     sp,dword ptr cs:stack_frame
-        sub     sp,(3*RM_STACKSIZE/4)*4   ; por si pillamos un proc real entrando
-
-        pushf                   ; stack frame de interrupci¢n
-        call    dword ptr cs:rm_proc_address
-        mov     ax,txdata
-        mov     ds,ax
-        jmp     set_pm_address
-;ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
