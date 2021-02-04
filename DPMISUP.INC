@@ -279,8 +279,9 @@ dpmi_call_rm proc
 	mov ds:[eax.stack_ss],ss
 
 	; Far jump to RM entry point
+	mov	es,cs:D32_SEL
     push dword ptr cs:C16_SEL
-    pushd ret_real
+    push dword ptr ret_real_address
 	retf
 	back_from_rm_call:
 	
