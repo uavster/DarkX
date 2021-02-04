@@ -122,8 +122,6 @@ dpmi_rm_iret:
 		jmp     set_pm_dpmi
 
 
-stack_frame     dw size txpr,?
-
 ; DPMI host-provided RM stack
 dpmi_stack_frame     		dw DPMI_TOTAL_STACK_SIZE+DPMI_REENTRY_STACK_SIZE,?
 dpmi_bytes_in_stack			dw ?

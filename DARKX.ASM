@@ -763,9 +763,6 @@ alloc_dos_mem   endp
 
 init_data       proc
 
-        ; inicializamos el stack frame para interrupciones reales
-        mov     word ptr cs:stack_frame+2,txpila_real
-
 	cld
 	mov     ax,txcode32
 	mov     es,ax
