@@ -223,12 +223,12 @@ exceptions:
         mov     word ptr [ebx+saltito+3],txcode
 
         mov     ds,cs:D16_SEL
+		ASSUME	DS:txdata
         mov     es,cs:D32_SEL
         push    dword ptr cs:C16_SEL
-        pushd   ret_real
+        push	dword ptr ret_real_address
         iretd
 
-ASSUME  DS:txdata
 reg_offsets     dd offset debug_ebx,offset debug_edi,offset debug_ecx
                 dd offset debug_esi,offset debug_ebp,offset debug_edx
 

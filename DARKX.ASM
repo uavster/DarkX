@@ -185,22 +185,6 @@ TXDATA  SEGMENT USE16 'DATA'
     real_sp                 dw 0
 	real_ss					dw 0
 
-	; registros en modo protegido antes del salto a real
-	pm_eax                  dd 0
-	pm_ebx                  dd 0
-	pm_ecx                  dd 0
-	pm_edx                  dd 0
-	pm_esi                  dd 0
-	pm_edi                  dd 0
-	pm_ebp                  dd 0
-	pm_esp                  dd 0
-	pm_eflags               dd 0
-	pm_ds                   dw ?
-	pm_es                   dw ?
-	pm_fs                   dw ?
-    pm_gs                   dw ?
-	pm_ss                   dw ?
-
 	; Every switch to real mode in the DPMI interface does:
 	; * Store PM stack in the index of dpmi_stack_info in dpmi_stack_info_offset
 	; * dpmi_stack_info_offset += size Tstack_info
@@ -666,44 +650,6 @@ set_pm_dpmi:
 	pop     ds
 	jmp     set_pm_address
 
-
-;ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
-; RUTINA DE VUELTA A REAL PARA TODOS LOS SISTEMAS (MODO PROTEGIDO)
-;ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
-; como se ejecuta en segmento de 16 bits, hay que evitar prefijos
-ret_real:
-        pushfd
-        pop     dword ptr pm_eflags
-	cli
-        mov     pm_ss,ss
-        mov     pm_eax,eax
-        mov     pm_ebx,ebx
-        mov     pm_ecx,ecx
-        mov     pm_edx,edx
-        mov     pm_esi,esi
-        mov     pm_edi,edi
-        mov     pm_ebp,ebp
-        mov     pm_esp,esp
-        jmp     ret_real_address
-	
-;		push eax
-;		pushfd
-;		cli
-;		ASSUME DS:TXDATA
-;		mov eax,ds:dpmi_state_offset
-;		add eax,offset dpmi_state
-;		mov ds:[eax._pm_esp],esp
-;		add ds:[eax.pm_esp],4
-;		mov ds:[eax._pm_ss],ss
-;		mov	ss,cs:D16_SEL
-;		lea esp,ds:[eax._pm_ip]
-;		push gs fs ds es
-;		pushfd
-;		pushad
-;		lss esp,ds:[eax._pm_esp]
-;		pop	ds:[eax._pm_eflags]
-;		pop ds:[eax._pm_eax]
-;        jmp     ret_real_address
 
 ;ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
 ; RUTINAS DE SALIDA AL SISTEMA OPERATIVO PARA TODOS LOS SISTEMAS (MODO REAL)
@@ -1531,12 +1477,14 @@ pm_error:
 	ASSUME  DS:txcode
 	add     ebx,offset saltito+1
 	mov     word ptr [ebx],offset s16
-        mov     ds,cs:D16_SEL   ; hay que cargarlos antes de llamar a RET_REAL
+        mov     ds,cs:D16_SEL   ; hay que cargarlos antes de llamar a RET_REAL_ADDRESS
         mov     es,cs:D32_SEL
 	push    dword ptr cs:C16_sel
-	pushd   ret_real
+	ASSUME	DS:txdata
+	push	dword ptr ds:ret_real_address
 	retf
-
+	ASSUME 	DS:txcode
+	
 ; Punto de salida bajo DPMI
 	salida_dpmi:
 	ASSUME  DS:txdata
