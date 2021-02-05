@@ -5,13 +5,21 @@ ret_real_vcpi:
 
         push    es
         pop     ss
-        mov     esp,txpila_real
-        shl     esp,4
-        add     esp,size txpr-4*4 ; simulamos 'push' de los selectores
+		ASSUME	CS:txcode
+		movzx	eax,word ptr cs:dpmi_actual_rm_stack_frame+2
+		shl		eax,4
+		movzx	edi,word ptr cs:dpmi_actual_rm_stack_frame
+		add		edi,eax
+		movzx	eax,es:[edi.rm_ss]
+		shl		eax,4
+		movzx	ebx,es:[edi.rm_sp]
+		add		ebx,eax
+        mov     esp,ebx
+        sub     esp,4*4 ; simulamos 'push' de los selectores
         xor     eax,eax
-        mov     ax,cs:stack_frame+2
-        push    eax             ; ESP
-        mov     ax,cs:stack_frame
+        mov     ax,es:[edi.rm_ss]
+		push    eax
+        mov     ax,es:[edi.rm_sp]
         push    eax
         pushfd
         ASSUME  ES:TXCODE
@@ -27,6 +35,7 @@ ret_real_vcpi:
         mov     es,ax
         mov     ds,bx
         mov     ax,0DE0Ch
+
         call    fword ptr es:vcpi_entry_point
 
 ;컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴�
@@ -125,6 +134,7 @@ vcpi_init       proc
         xor     ebx,ebx
         mov     bx,ds
         pop     ds
+ASSUME DS:TXDATA
         shl     ebx,4
         mov     dir_base,ebx
         movzx   esi,si

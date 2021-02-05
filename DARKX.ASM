@@ -102,6 +102,8 @@ TXDATA  SEGMENT USE16 'DATA'
         bad_exec_error_msg      db "Error: Program is NOT a Linear or DOS32 Executable$"
         comp_exe_error_msg      db "Error: DLINK executable is compressed$"
 
+		vcpi_emm_name 			db 'EMMXXXX0',0
+		
         dos_mem_size            dd ?
 
         ; EXE info (OEM function 3201h)
@@ -514,15 +516,51 @@ pop ebx
 	mov     word ptr prot_code_address+4,ax
 
 	; comprobamos si hay VCPI
+	lea dx,vcpi_emm_name      ; open EMM device, read-only
+     mov ax,3D00h
+     int 21h
+     jc short vcpi_not_present     ; branch if error
+     mov bx,ax            ; get device information
+     mov ax,4400h
+     int 21h
+     jc short vcpi_not_present     ; branch if error
+     test dx,80h          ; branch if file (not device)
+     jz short vcpi_not_present
+     mov ax,4407h         ; check output status
+     int 21h
+     push ax              ; save return code from IOCTL call
+     mov ah,3Eh           ; close file
+     int 21h
+     pop ax               ; restore IOCTL return code
+     cmp al,0FFh          ; branch if status not device ready
+     jne short vcpi_not_present
+	 
 	; primero miramos si hay vector o no...
 	xor     ax,ax
         mov     es,ax
         cmp     dword ptr es:[67h*4],0
 	jz      vcpi_not_present
+
+	; Now allocate an EMS page to make sure the EMS emulator is turned on.
+; Note that we must save the handle for this allocated page and free it
+; again eventually, although this is not shown in the code fragment.
+;
+    mov bx,1           ; allocate 1 EMS page
+    mov ah,43h
+    int 67h
+    cmp ah,0          ; branch if error
+    jne short vcpi_not_present
+; save handle returned in DX to be freed later
+
+; Now make VCPI detection call
+;	 
 	mov     ax,0DE00h
+	mov		di,12h	; This is necessary for DOSBox-X to detect VCPI, but crashes with plain DOSBox
+	xor		cx,cx
 	int     67h
 	or      ah,ah
 	jnz     vcpi_not_present
+
 		ASSUME  DS:txdata
 		inc     system_type
                 save_vcpi_data
