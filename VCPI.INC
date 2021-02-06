@@ -62,6 +62,8 @@ ENDM
 ;ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
 
 vcpi_init       proc
+; INPUT -> DS = TXDATA
+		ASSUME	DS:txdata
         ; le decimos que redireccionamos las irq's
         mov     ax,0DE0Ah
         int     67h     ; averiguamos la base de las irq's 8-15
@@ -90,6 +92,7 @@ vcpi_init       proc
         ; + 256 bytes para el TSS (104 m¡nimo)
         add     bx,(4096+4096+256)/16
         call    get_dos_mem
+		mov		vcpi_page_dir,ax
         add     ax,0FFh         ; lo alineamos a 4Kb
         and     ax,0FF00h       ; a la siguiente p gina
         mov     es,ax
@@ -134,7 +137,6 @@ vcpi_init       proc
         xor     ebx,ebx
         mov     bx,ds
         pop     ds
-ASSUME DS:TXDATA
         shl     ebx,4
         mov     dir_base,ebx
         movzx   esi,si
@@ -189,9 +191,30 @@ ASSUME DS:TXDATA
         ret
 
         vcpi_init_error:
-                mov     dx,offset vcpi_init_err_msg
-                call    printf
-                jmp     fin
+		mov     dx,offset vcpi_init_err_msg
+		call    printf
+		jmp     fin
 
 vcpi_init       endp
+
+;ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+
+vcpi_uninit		proc
+; INPUT -> DS = TXDATA
+	pushf
+	cli
+	; Tell the VCPI server that we're restoring the IRQ base
+	xor     bx,bx
+	mov     bl,cs:irq_base
+	mov     ax,0DE0Bh
+	int     67h
+	mov		ax,vcpi_page_dir
+	test	ax,ax
+	jz		no_vcpi_page_dir
+			call	free_dos_mem
+	no_vcpi_page_dir:
+	popf
+	ret
+vcpi_uninit		endp
+
 ;ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ

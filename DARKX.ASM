@@ -131,7 +131,9 @@ TXDATA  SEGMENT USE16 'DATA'
         xms_entry_point         dd 0    ; si es 0, es que no hay XMS
 
 	vcpi_entry_point        dd ?
-				dw VCPI_CODE_SEL
+							dw VCPI_CODE_SEL
+	vcpi_page_dir			dw 0
+
 
         dir_base                dd 0
         page_dir_base           dd 0
@@ -163,7 +165,8 @@ TXDATA  SEGMENT USE16 'DATA'
 
 	dpmi_exception_flag     db 0
 
-        not_enough_mem          db "Error: Not enough conventional memory$"
+	not_enough_mem          db "Error: Not enough conventional memory$"
+	cant_free_mem			db "Error: Unable to free DOS memory$"	
 
 	psp_seg                 dw ?
 
@@ -688,7 +691,6 @@ set_pm_dpmi:
 	pop     ds
 	jmp     set_pm_address
 
-
 ;ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
 ; RUTINAS DE SALIDA AL SISTEMA OPERATIVO PARA TODOS LOS SISTEMAS (MODO REAL)
 ;ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
@@ -707,25 +709,17 @@ s16:
 	mov     ds,ax
 	test    system_type,1
 	jz      no_vcpi_end
-		; avisamos al VCPI de que restauramos las irq's
-		mov     ax,0DE0Ah
-		int     67h
-                xor     bx,bx
-                mov     bl,cs:irq_base
-		mov     ax,0DE0Bh
-		cli
-		int     67h
-		sti
-
+			call    vcpi_uninit
 	no_vcpi_end:
-        mov     ah,cs:irq_base
-        call    irq_redir
-        exit_redirless:
-        cmp     dword ptr xms_entry_point,0
-        jz      no_xms_allocated
-                free_xms_mem
-        no_xms_allocated:
-        sti             ; activamos irqs por si hubo excepci¢n despu‚s de CLI
+	mov     ah,cs:irq_base
+	call    irq_redir
+	exit_redirless:
+	cmp     dword ptr xms_entry_point,0
+	jz      no_xms_allocated
+			free_xms_mem
+	no_xms_allocated:
+	sti             ; activamos irqs por si hubo excepci¢n despu‚s de CLI
+
 	mov     ax,4C00h
 	int     21h
 
@@ -1184,16 +1178,25 @@ init_mem        endp
 ;ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
 
 get_dos_mem     proc
-
 	mov     ah,48h
 	int     21h
 	mov     dx,offset not_enough_mem
-;        pop     ecx     ; si salimos, la pila estar  limpia
 	jc      error_handle
-;        push    ecx
 	ret
-
 get_dos_mem     endp
+
+free_dos_mem	proc
+; INPUT: AX = Segment of block to release
+; OUTPUT: CF = 0 if success; CF = 1 if error, and AX = error code.
+	push	es
+	mov		es,ax
+	mov		ah,49h
+	int		21h
+	mov		dx,offset cant_free_mem
+	pop		es
+	jc		error_handle
+	ret
+free_dos_mem	endp
 
 ;ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
 
