@@ -103,7 +103,7 @@ TXDATA  SEGMENT USE16 'DATA'
         comp_exe_error_msg      db "Error: DLINK executable is compressed$"
 
 		vcpi_emm_name 			db 'EMMXXXX0',0
-		
+
         dos_mem_size            dd ?
 
         ; EXE info (OEM function 3201h)
@@ -133,7 +133,7 @@ TXDATA  SEGMENT USE16 'DATA'
 	vcpi_entry_point        dd ?
 							dw VCPI_CODE_SEL
 	vcpi_page_dir			dw 0
-
+	vcpi_ems_test_page		dw 0
 
         dir_base                dd 0
         page_dir_base           dd 0
@@ -518,47 +518,46 @@ pop ebx
 	mov     word ptr vcpi_cs_eip+4,ax
 	mov     word ptr prot_code_address+4,ax
 
-	; comprobamos si hay VCPI
-	lea dx,vcpi_emm_name      ; open EMM device, read-only
-     mov ax,3D00h
-     int 21h
-     jc short vcpi_not_present     ; branch if error
-     mov bx,ax            ; get device information
-     mov ax,4400h
-     int 21h
-     jc short vcpi_not_present     ; branch if error
-     test dx,80h          ; branch if file (not device)
-     jz short vcpi_not_present
-     mov ax,4407h         ; check output status
-     int 21h
-     push ax              ; save return code from IOCTL call
-     mov ah,3Eh           ; close file
-     int 21h
-     pop ax               ; restore IOCTL return code
-     cmp al,0FFh          ; branch if status not device ready
-     jne short vcpi_not_present
+	; Check if there's VCPI.
+	; Fragments taken from 
+	; http://www.edm2.com/index.php/Virtual_Control_Program_Interface_specification_v1#A.3_Sample_VCPI_Detection_Code
+	lea 	dx,vcpi_emm_name			; open EMM device, read-only
+	mov 	ax,3D00h
+	int 	21h
+	jc 		short vcpi_not_present		; branch if error
+	mov 	bx,ax            			; get device information
+	mov 	ax,4400h
+	int 	21h
+	jc 		short vcpi_not_present     	; branch if error
+	test 	dx,80h          			; branch if file (not device)
+	jz 		short vcpi_not_present
+	mov 	ax,4407h         			; check output status
+	int 	21h
+	push 	ax              			; save return code from IOCTL call
+	mov 	ah,3Eh           			; close file
+	int 	21h
+	pop 	ax               			; restore IOCTL return code
+	cmp 	al,0FFh          			; branch if status not device ready
+	jne 	short vcpi_not_present
 	 
 	; primero miramos si hay vector o no...
 	xor     ax,ax
-        mov     es,ax
-        cmp     dword ptr es:[67h*4],0
+	mov     es,ax
+	cmp     dword ptr es:[67h*4],0
 	jz      vcpi_not_present
 
 	; Now allocate an EMS page to make sure the EMS emulator is turned on.
-; Note that we must save the handle for this allocated page and free it
-; again eventually, although this is not shown in the code fragment.
-;
-    mov bx,1           ; allocate 1 EMS page
-    mov ah,43h
-    int 67h
-    cmp ah,0          ; branch if error
-    jne short vcpi_not_present
-; save handle returned in DX to be freed later
+    mov 	bx,1           				; allocate 1 EMS page
+    mov 	ah,43h
+    int 	67h
+    cmp 	ah,0						; branch if error
+    jne 	short vcpi_not_present
+	; Save handle returned in DX to be freed later
+	mov 	vcpi_ems_test_page,dx
 
-; Now make VCPI detection call
-;	 
+	; VCPI detection call
 	mov     ax,0DE00h
-	mov		di,12h	; This is necessary for DOSBox-X to detect VCPI, but crashes with plain DOSBox
+	mov		di,12h	; This is necessary for DOSBox-X to detect VCPI
 	xor		cx,cx
 	int     67h
 	or      ah,ah
@@ -697,7 +696,6 @@ set_pm_dpmi:
 ; Rutina de salida normal
 s16:
 	cli
-
 	; reajustamos la pila para modo real
 	mov     eax,txpila
 	mov     ss,ax
@@ -705,19 +703,29 @@ s16:
 	sub     esp,eax
 
 	fin:
+	cli
 	mov     ax,txdata
 	mov     ds,ax
-	test    system_type,1
-	jz      no_vcpi_end
-			call    vcpi_uninit
-	no_vcpi_end:
+	ASSUME 	DS:txdata
 	mov     ah,cs:irq_base
 	call    irq_redir
 	exit_redirless:
 	cmp     dword ptr xms_entry_point,0
 	jz      no_xms_allocated
+			push	ds
 			free_xms_mem
+			pop		ds
 	no_xms_allocated:
+	test    system_type,1
+	jz      no_vcpi_end
+			call    vcpi_uninit
+	no_vcpi_end:
+	cmp		vcpi_ems_test_page,0
+	jz		no_vcpi_ems_test_page
+			mov		ah,45h
+			mov		dx,vcpi_ems_test_page
+			int		67h
+	no_vcpi_ems_test_page:	
 	sti             ; activamos irqs por si hubo excepci¢n despu‚s de CLI
 
 	mov     ax,4C00h

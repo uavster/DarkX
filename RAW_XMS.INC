@@ -56,14 +56,17 @@ alloc_xms_mem MACRO
         or      ax,ax
         jz      xms_alloc_done
         mov     word ptr es:[di+xms_handles],dx
-        inc     byte ptr es:extended_pointers
         mov     ah,0Ch
         call    dword ptr xms_entry_point
         or      ax, ax
         jnz     page_is_locked  ; si no la bloquea, no la a¤adimos a la heap
-                dec     byte ptr es:extended_pointers
-                jmp     cont_adding
+				; Free allocated block, if it can't be locked
+				mov		ah,0Ah
+				mov		dx,word ptr es:[di+xms_handles]
+				call 	dword ptr xms_entry_point
+                jmp     cont_adding_xms
         page_is_locked:
+        inc     byte ptr es:extended_pointers
         shl     edx,16
         mov     dx,bx
         movzx   ecx,cx

@@ -34,8 +34,13 @@ ret_real_vcpi:
         mov     bx,es
         mov     es,ax
         mov     ds,bx
+		
         mov     ax,0DE0Ch
-
+		; If the client does any task switching, it should clear the TS bit
+		; in CR0 before making this call. Otherwise, the TS bit will still 
+		; be set after the switch to V86 mode, and a floating point coprocessor 
+		; instruction in V86 mode will cause an exception 7 trap to the server. 
+		clts	; Clear Task-Switched Flag in CR0
         call    fword ptr es:vcpi_entry_point
 
 ;컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴�
