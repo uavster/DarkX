@@ -79,13 +79,13 @@ TXDATA  SEGMENT USE16 'DATA'
         fpu287                  db " +287$"
         fpu387                  db " +387$"
         fpu487                  db " +487$"
-        sys_type_msg            db 13,10," þ System Type: $"
+        sys_type_msg            db " þ System Type: $"
         sys_types               dw offset raw_msg,offset vcpi_msg,offset dpmi_msg,offset xms_msg
         raw_msg                 db "RAW$"
         vcpi_msg                db "VCPI$"
         dpmi_msg                db "DPMI$"
         xms_msg                 db "XMS$"
-        dos_mem_msg             db 13,10," þ DOS memory:  $"
+        dos_mem_msg             db " þ DOS memory:  $"
         extended_mem_msg        db " Kb",13,10," þ DPMI memory: $"
         kb_msg                  db " Kb",13,10,10,"$"
 
@@ -93,6 +93,7 @@ TXDATA  SEGMENT USE16 'DATA'
         A20_error_msg           db "Error: Could not enable A20 line$"
         v86_error_msg           db "Error: System is in V86 mode and no VCPI/DPMI manager found$"
         no386_error_msg         db "Error: No 386 or better processor found$"
+		cr_lf					db 13,10
 
         ; loader error messages
         exe_size_error_msg      db "Error: Not enough memory to load program$"
@@ -493,6 +494,8 @@ pop ebx
         call    printf
 
         no_fpu_det_needed:
+	mov		dx,offset cr_lf
+	call	printf
         ; cambiamos el tama¤o del bloque de programa
 	call    init_mem
 
