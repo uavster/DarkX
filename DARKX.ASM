@@ -93,7 +93,7 @@ TXDATA  SEGMENT USE16 'DATA'
         A20_error_msg           db "Error: Could not enable A20 line$"
         v86_error_msg           db "Error: System is in V86 mode and no VCPI/DPMI manager found$"
         no386_error_msg         db "Error: No 386 or better processor found$"
-		cr_lf					db 13,10
+		cr_lf					db 13,10,"$"
 
         ; loader error messages
         exe_size_error_msg      db "Error: Not enough memory to load program$"
@@ -1367,6 +1367,11 @@ c32_init:
         mov     dx,word ptr [edx+sys_types]
         int     21h
 
+		mov		ah,9
+		mov		ds,cs:D16_SEL
+		mov		edx,offset cr_lf
+		int		21h
+		
         mov     edx,offset dos_mem_msg
         int     21h
 

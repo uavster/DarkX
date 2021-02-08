@@ -76,7 +76,7 @@ vcpi_init       proc
         jnz     vcpi_init_error
         mov     cs:irq_base,bl
         mov     ax,0DE0Bh
-        mov     bx,50h  ; base de las irq's bajas
+        mov     bx,NEW_IRQ0_IRQ7_BASE
         cli
         int     67h
         or      ah,ah
