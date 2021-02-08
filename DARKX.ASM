@@ -560,7 +560,7 @@ pop ebx
 
 	; VCPI detection call
 	mov     ax,0DE00h
-	mov		di,12h	; This is necessary for DOSBox-X to detect VCPI
+	mov		di,12h	; This is necessary for DOSBox and DOSBox-X to detect VCPI
 	xor		cx,cx
 	int     67h
 	or      ah,ah
