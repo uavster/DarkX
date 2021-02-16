@@ -2,7 +2,7 @@
 NOWARN PRO
 JUMPS
 
-DEBUG_ON	EQU 0
+DEBUG_ON	EQU 1
 
 ; number of needed call-back slots
 NUM_RM_CALLBACKS	EQU 32
@@ -14,6 +14,9 @@ PM_STACKSIZE    EQU 1000h       ; 16 Kb
 RM_STACKSIZE    EQU 1000h       ; 16 Kb
 
 DPMI_MAX_REENTRIES EQU 8		; RM_STACKSIZE*4/DPMI_MAX_REENTRIES must be multiple of 4
+
+FORCE_DOSBOX_VCPI	EQU 0		; If not 0, magic values are set for DOSBox to report VCPI presence.
+								; This is not recommended as it's not really stable.
 
 ; TASM 3.1 no ensambla bien los PUSH's de offsets de 32 bits
 pushd MACRO address_32
@@ -404,11 +407,13 @@ init_pm:
 ;        dec     dx
 ;        xor     ax,2e32h
 
-push ebx
-mov bh,15
-xor bl,bl
-call debug16_move_cursor
-pop ebx
+IF DEBUG_ON
+	push ebx
+	mov bh,10
+	xor bl,bl
+	call debug16_move_cursor
+	pop ebx
+ENDIF
 
 	; presentamos el Copyright y el t죜ulo
         push    ds
@@ -524,25 +529,29 @@ pop ebx
 	; Check if there's VCPI.
 	; Fragments taken from 
 	; http://www.edm2.com/index.php/Virtual_Control_Program_Interface_specification_v1#A.3_Sample_VCPI_Detection_Code
-	lea 	dx,vcpi_emm_name			; open EMM device, read-only
+	lea 	dx,vcpi_emm_name			; Open EMM device, read-only
 	mov 	ax,3D00h
 	int 	21h
-	jc 		short vcpi_not_present		; branch if error
-	mov 	bx,ax            			; get device information
+	jc 		short vcpi_not_present
+	mov 	bx,ax            			; Get device information
 	mov 	ax,4400h
 	int 	21h
-	jc 		short vcpi_not_present     	; branch if error
-	test 	dx,80h          			; branch if file (not device)
-	jz 		short vcpi_not_present
-	mov 	ax,4407h         			; check output status
+	jc 		short vcpi_not_present_close_device
+	test 	dx,80h          			; Branch if file (not device)
+	jz 		short vcpi_not_present_close_device
+	mov 	ax,4407h         			; Check output status
 	int 	21h
-	push 	ax              			; save return code from IOCTL call
-	mov 	ah,3Eh           			; close file
+	cmp 	al,0FFh          			; Device must be ready
+	je 		short vcpi_keep_init
+	
+	vcpi_not_present_close_device:
+	mov 	ah,3Eh           			; Close file
 	int 	21h
-	pop 	ax               			; restore IOCTL return code
-	cmp 	al,0FFh          			; branch if status not device ready
-	jne 	short vcpi_not_present
-	 
+	jmp 	short vcpi_not_present
+	
+	vcpi_keep_init:
+	mov 	ah,3Eh           			; Close file
+	int 	21h
 	; primero miramos si hay vector o no...
 	xor     ax,ax
 	mov     es,ax
@@ -560,18 +569,28 @@ pop ebx
 
 	; VCPI detection call
 	mov     ax,0DE00h
+IF FORCE_DOSBOX_VCPI
 	mov		di,12h	; This is necessary for DOSBox and DOSBox-X to detect VCPI
 	xor		cx,cx
+ELSE
+	xor		di,di
+ENDIF
 	int     67h
 	or      ah,ah
-	jnz     vcpi_not_present
+	jnz     vcpi_not_present_free_test_page
 
-		ASSUME  DS:txdata
-		inc     system_type
-                save_vcpi_data
-                jmp     avoid_v86_test
-		ASSUME  DS:txdata
-	vcpi_not_present:
+	; VCPI detected
+	ASSUME  DS:txdata
+	inc     system_type
+	save_vcpi_data
+	jmp     avoid_v86_test
+	
+	vcpi_not_present_free_test_page:
+	mov		ah,45h
+	mov		dx,vcpi_ems_test_page
+	int		67h
+
+	vcpi_not_present:	
 
         ; si no hay VCPI tampoco, comprobamos si estamos en V86
         cmp     system_type,0
@@ -582,7 +601,7 @@ pop ebx
         mov     dx,offset v86_error_msg
         jnz     error_handle1
 
-        ; si llegamos aki, estamos en RAW / XMS : lo averiguamos
+        ; Get extended memory with XMS; alternatively, use BIOS
         avoid_v86_test:
         mov     ax,4300h
         int     2Fh
@@ -602,10 +621,11 @@ pop ebx
                 a20_ok:
                 alloc_xms_mem
                 jmp     mem_alloc_done
-        no_xms:
-        ; activamos la A20 a mano
+        
+		no_xms:
+		; The XMS handler failed, try the BIOS
+        ; Enable A20 line and get extended memory
         call    enable_A20
-        ; pillamos extendida con int15h
         mov     ax,txcode32
         mov     es,ax
         mov     byte ptr es:extended_pointers,0
@@ -648,7 +668,7 @@ pop ebx
 	no_dpmi_init:
 	; si tenemos VCPI lo inicializamos
 	test    al,1
-        jz      get_all_mem     ; Si es RAW/XMS no hace falta inicializar nada
+    jz      get_all_mem     ; Si es RAW/XMS no hace falta inicializar nada
 
 		call    vcpi_init
 
@@ -1512,11 +1532,11 @@ load_dlink_file:
 
 ; salida de error en la carga de ejecutable com즢 a LE y DLINK loaders
 pm_error:
-        mov     ds,cs:D16_SEL
-        mov     ah,9
-        int     21h
-        mov     ax,4C01h
-        int     21h
+	mov     ds,cs:D16_SEL
+	mov     ah,9
+	int     21h
+	mov     ax,4C01h
+	int     21h
 
 	salida:
 	ASSUME DS:txdata
@@ -1539,7 +1559,7 @@ pm_error:
 	retf
 	ASSUME 	DS:txcode
 	
-; Punto de salida bajo DPMI
+	; Punto de salida bajo DPMI
 	salida_dpmi:
 	ASSUME  DS:txdata
 	; recuperamos excepciones
@@ -1556,21 +1576,21 @@ pm_error:
 	jnz restore_ints
 
 	; recuperamos las interrupciones
-        ASSUME  ES:txcode32
-        mov     es,cs:D32_SEL
-        xor     bl,bl
-        mov     edi,txcode32
-        shl     edi,4
-        recupera_ints:
-                ASSUME  ES:txcode32
-                mov     edx,dword ptr es:[edi+idt]
-                mov     cx,word ptr es:[edi+idt+4]
-                ASSUME  ES:txdata
-                mov     ax,205h
-                int     31h
-                add     edi,6
-        inc bl
-        jnz recupera_ints
+	ASSUME  ES:txcode32
+	mov     es,cs:D32_SEL
+	xor     bl,bl
+	mov     edi,txcode32
+	shl     edi,4
+	recupera_ints:
+			ASSUME  ES:txcode32
+			mov     edx,dword ptr es:[edi+idt]
+			mov     cx,word ptr es:[edi+idt+4]
+			ASSUME  ES:txdata
+			mov     ax,205h
+			int     31h
+			add     edi,6
+	inc bl
+	jnz recupera_ints
 
 	; si se produjo una excepci줻, salimos con info de debugging
 	cmp     dpmi_exception_flag,0
@@ -1584,7 +1604,7 @@ pm_error:
 	push    ax
 	sub     esp,2
 	cld
-        db      66h             ; push de un WORD en segmento de 32 bits
+	db      66h             ; push de un WORD en segmento de 32 bits
 	pushf
 	mov     dx,offset debug_info_msg
 	mov     ah,9
@@ -1600,7 +1620,7 @@ pm_error:
 	any_exception:
 	; restauramos la base de las irq's y salimos al OS
 	push    dword ptr cs:C16_SEL
-        pushd   exit_redirless
+	pushd   exit_redirless
 	retf
 
 ;컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴�
@@ -1609,7 +1629,7 @@ code_end:
 idt             dd 256*2 dup(?)
 
 ; tabla de redireccionamientos de interrupciones
-interrup_redir  dd 256*2 dup(?)
+interrup_redir  		dd 256*2 dup(?)
 
 dos_heap_info           dd ?,?
 dos_pointers            db 8*100+1 dup(?)

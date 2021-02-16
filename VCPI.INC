@@ -85,7 +85,10 @@ vcpi_init       proc
         ; le pedimos un interface al gestor
         ; necesitamos un buffer de 4Kb por cada 4Mb que haya en el sistema
         mov     ax,0DE02h
-        int     67h     ; this function never fails (EDX=physical address of highest 4Kb page)
+        int     67h
+		test	ah,ah
+        jnz     vcpi_init_error
+		; EDX=physical address of highest 4Kb page
         add     edx,4096+3FFFFFh  ; (tama¤o = direcci¢n £ltima p gina + 4096)+3fffffh para alinear a 4Mb
         and     edx,NOT 3FFFFFh
         push    edx
@@ -98,7 +101,7 @@ vcpi_init       proc
         add     bx,(4096+4096+256)/16
         call    get_dos_mem
 		mov		vcpi_page_dir,ax
-        add     ax,0FFh         ; lo alineamos a 4Kb
+        add     ax,0FFh         ; lo alineamos a 4Kb (100h 16-byte paragraphs)
         and     ax,0FF00h       ; a la siguiente p gina
         mov     es,ax
 
@@ -161,14 +164,18 @@ vcpi_init       proc
         mov     word ptr tss_desc+2,ax
         shr     eax,16
         mov     byte ptr tss_desc+4,al
-        ; pedimos el interface
+
+        ; VCPI Get Protected Mode Interface
+		; DS:SI -> Descriptors
+		; ES:DI -> Client pages
         mov     di,1000h
         mov     ax,0DE01h
         mov     si,offset vcpi_descs    ; DS:SI -> buffer 3 desc.'s
-        int     67h
+        int     67h		; DOSBOX crashes at this point after running other programs
         or      ah,ah
         jnz     vcpi_init_error
         mov     vcpi_entry_point,ebx
+
 ;        xor     ebx,ebx
 ;        mov     bx,es
 ;        shl     ebx,4
