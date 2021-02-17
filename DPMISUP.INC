@@ -72,6 +72,12 @@ tx_int31h:
 
         cmp     ax,0800h
         jz      map_memory
+		
+		; Ignore locking/unlocking services, as we do not support virtual memory
+		cmp		ax,600h			; lock linear region
+		jz		return_success
+		cmp		ax,601h			; unlock linear region
+		jz		return_success
 
         ; si no es una funci줻 soportada, salimos con CF = 1
         or      byte ptr ss:[esp+4*2],1
@@ -238,7 +244,7 @@ make_rm_int:
         ; restauramos los registros
 		pop gs fs es ds
         popad
-
+		return_success:
 		and byte ptr ss:[esp+2*4],0feh	; Clear carry flag
         iretd
 
@@ -889,5 +895,7 @@ set_rm_int_vec:
         and     byte ptr ss:[esp+4*2],0FEh
         iretd
 ;컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴�
-
+lock_unlock_mem:
+		and		byte ptr ss:[esp+4*2],0FEh
+		iretd
 
