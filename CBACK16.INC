@@ -12,7 +12,7 @@ CBSLOT=size TCallBack
 REPT    (NUM_RM_CALLBACKS-1)
         push    ax
         mov     ax,CBSLOT
-        jmp     word ptr callback_manager
+        jmp     callback_manager
         CBSLOT=CBSLOT+size TCallBack
 ENDM
 
