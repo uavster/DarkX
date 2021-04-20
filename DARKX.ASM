@@ -2,7 +2,7 @@
 NOWARN PRO
 JUMPS
 
-DEBUG_ON	EQU 1
+DEBUG_ON	EQU 0
 
 ; number of needed call-back slots
 NUM_RM_CALLBACKS	EQU 32
