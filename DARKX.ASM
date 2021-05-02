@@ -292,24 +292,25 @@ TXDATA  SEGMENT USE16 'DATA'
 				db "EFLAGS = "
 	debug_flags             db "00000000h",13,10
 				db "컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴"
-				db "Selectors:          Descriptors:",13,10
+				db "Selectors:    Descriptors:               Nested PM->RM"
+	debug_pmstacks	db " calls:   ",13,10
 				db "CS = "
-	debug_cs1               db "0000h    ->    "
+	debug_cs1               db "0000h -> "
 	desc_cs                 db "00 00 00 00 00 00 00 00",13,10
 				db "DS = "
-	debug_ds                db "0000h    ->    "
+	debug_ds                db "0000h -> "
 	desc_ds                 db "00 00 00 00 00 00 00 00",13,10
 				db "ES = "
-	debug_es                db "0000h    ->    "
+	debug_es                db "0000h -> "
 	desc_es                 db "00 00 00 00 00 00 00 00",13,10
 				db "FS = "
-	debug_fs                db "0000h    ->    "
+	debug_fs                db "0000h -> "
 	desc_fs                 db "00 00 00 00 00 00 00 00",13,10
 				db "GS = "
-	debug_gs                db "0000h    ->    "
+	debug_gs                db "0000h -> "
 	desc_gs                 db "00 00 00 00 00 00 00 00",13,10
 				db "SS = "
-	debug_ss                db "0000h    ->    "
+	debug_ss                db "0000h -> "
 	desc_ss                 db "00 00 00 00 00 00 00 00",13,10
 				db "컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴"
 				db "$"

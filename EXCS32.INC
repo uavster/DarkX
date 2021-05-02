@@ -204,8 +204,17 @@ exceptions:
         dec     ecx 
 	jnz     put_err_strn
 	end_put:
-
-        ; hacemos un acknowledge a los PIC por si la excepci¢n ocurri¢ en
+	
+	; Print number of DPMI stacks
+	mov		eax,ds:dpmi_stack_info_offset
+	xor		edx,edx
+	mov		ebx,size Tstack_info
+	div		ebx
+	mov		edi,offset debug_pmstacks
+	call	bin_to_hex
+	mov		[edi+8],ax
+	
+		; hacemos un acknowledge a los PIC por si la excepci¢n ocurri¢ en
         ; una IRQ
         mov     al,20h          ; acknowledge
         out     20h,al          ; master PIC
