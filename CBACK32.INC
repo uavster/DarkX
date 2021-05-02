@@ -1,3 +1,6 @@
+CALLBACK_TOTAL_STACK_SIZE 	EQU 4*(PM_STACKSIZE/2)
+CALLBACK_REENTRY_STACK_SIZE	EQU CALLBACK_TOTAL_STACK_SIZE/DPMI_MAX_REENTRIES
+
 callback_pm:
         cli
         ; preparamos los datos de entrada para el call-back
@@ -39,9 +42,17 @@ callback_pm:
         mov     es:[edi.rm_ip],dx
         mov     es:[edi.rm_cs],txcode
         ; SS:ESP -> locked protected mode API stack
-        mov     esp,txpila
-        shl     esp,4
-        add     esp,size tx_pila-4*(PM_STACKSIZE/2)  ; we are not using stack before this
+		; Each callback gets its own stack, up to DPMI_MAX_REENTRIES
+		ASSUME DS:txdata
+		mov		ds,cs:D16_SEL
+		mov		edx,txpila
+		shl		edx,4
+		add		edx,CALLBACK_TOTAL_STACK_SIZE
+		sub		edx,callback_stack_offset
+		add		callback_stack_offset,CALLBACK_REENTRY_STACK_SIZE
+		mov		esp,edx
+		mov		ds,cs:D32_SEL
+		ASSUME DS:txcode
 
         push    ds ebx
         pushfd          ; procedure will return with IRETD
@@ -65,6 +76,7 @@ callback_pm:
         ASSUME  DS:txdata
         mov     ds,cs:D16_SEL
         mov     es,cs:D32_SEL
+		sub		callback_stack_offset,CALLBACK_REENTRY_STACK_SIZE
         push    dword ptr cs:C16_SEL
         push    dword ptr ret_real_address
         retf

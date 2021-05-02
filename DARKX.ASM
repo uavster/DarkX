@@ -200,6 +200,10 @@ TXDATA  SEGMENT USE16 'DATA'
 	; Swithing back to protected mode does dpmi_stack_info_offset -= size Tstack_info
 	dpmi_stack_info_offset	dd 0
 	dpmi_stack_info			Tstack_info DPMI_MAX_REENTRIES dup(<>)
+	
+	; Every callback to protected mode decrements this offset with the size of one callback stack.
+	; There is a maximum of DPMI_MAX_REENTRIES callback stacks.
+	callback_stack_offset	dd 0
 
 	set_pm_address          dw offset set_pm_raw
 
