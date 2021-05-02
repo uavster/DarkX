@@ -82,7 +82,7 @@ dpmi_rm_iret:
 		push	cs
 		push	offset after_rm_int		; Return address
 		
-		and		ds:[bp.rm_flags],not 0300h
+		and		ds:[bp.rm_flags],not 0300h	; Clear NT and IF
 		push	ds:[bp.rm_flags]
 		push	ds:[bp.rm_cs]
 		push	ds:[bp.rm_ip]			; RM call address
