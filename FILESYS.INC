@@ -54,7 +54,6 @@ openfile        endp
 ;컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴
 
 read            proc
-
         mov     ah, 3fh
         int     21h
         jc      r_exit
@@ -64,7 +63,6 @@ read            proc
         stc
 r_exit:
         ret
-
 read            endp
 
 ;컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴
@@ -77,24 +75,26 @@ read            endp
 ;
 ;  returns:
 ;    cf - set if error
-;    eax - new file position
+;    eax - if cf==0, new file position; if cf==1, ax=error code
 ;
 ;  modifies:
 ;    eax
 ;컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴
 
 seek            proc
-
         mov     ah, 42h
         push    ecx
         push    edx
         shld    ecx, edx, 16            ; cx:dx <- file position
         int     21h
+		jc 		s_exit
+		shl		eax, 16
         shld    edx, eax, 16
         mov     eax, edx
+		clc
+s_exit:
         pop     edx
         pop     ecx
         ret
-
 seek            endp
 
