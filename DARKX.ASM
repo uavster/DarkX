@@ -319,6 +319,8 @@ TXDATA  SEGMENT USE16 'DATA'
 				db "ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ"
 				db "$"
 
+	is_verbose	db 0
+
 ; ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
 ; Teknik Teknik Teknik Teknik Teknik Teknik Teknik Teknik Teknik Teknik
 ; ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
@@ -403,6 +405,75 @@ INCLUDE         ints16.inc
 INCLUDE         cback16.inc
 INCLUDE 		debug16.inc
 
+check_verbose_flag	proc
+; INPUT: DS -> PSP
+	; Look for '-ver' and then 'bose' in the command line.
+	movzx	cx,byte ptr ds:[80h]	; bytes in command line
+	cmp		cx,8+1	; -verbose + CR
+	jae		look_for_verbose_flag
+	ret
+	
+	look_for_verbose_flag:
+	push	es	
+	push	ds
+	pop		es
+	mov		di,81h+1	; -> command line
+	cld
+	search_flag:
+			cmp		cx,8+1	; -verbose + CR
+			jb		cvf_leave
+			mov		al,'-'
+			repne	scasb
+			test	cx,cx
+			jz		cvf_leave
+			cmp		byte ptr es:[di-2],' '
+			jnz		search_flag
+			mov		al,'v'
+			dec		cx
+			scasb
+			jnz		search_flag
+			mov		al,'e'
+			dec		cx
+			scasb
+			jnz		search_flag
+			mov		al,'r'
+			dec		cx
+			scasb
+			jnz		search_flag
+			mov		al,'b'
+			dec		cx
+			scasb
+			jnz		search_flag
+			mov		al,'o'
+			dec		cx
+			scasb
+			jnz		search_flag
+			mov		al,'s'
+			dec		cx
+			scasb
+			jnz		search_flag
+			mov		al,'e'
+			dec		cx
+			scasb
+			jnz		search_flag
+			mov		al,0dh
+			dec		cx
+			scasb
+			jz		flag_found
+			dec		di
+			mov		al,' '
+			scasb
+			jnz		search_flag
+			flag_found:
+					mov		ax,txdata
+					mov		es,ax
+					ASSUME	ES:TXDATA
+					mov		es:is_verbose,1
+	cvf_leave:
+	pop		es
+	ret
+endp
+
 ; ////////////////////////////
 ; PUNTO DE ENTRADA DE DarkX.EXE
 ; ////////////////////////////
@@ -420,11 +491,15 @@ IF DEBUG_ON
 	pop ebx
 ENDIF
 
+		call 	check_verbose_flag
+	
+	
 	; presentamos el Copyright y el t¡tulo
         push    ds
         mov     dx,offset copyright_msg
-	call    printf
+		call    verbose_print_16
         pop     ds
+		
 
         ; comprobamos que el DOS sea 3.0+
         mov     ah,30h
@@ -488,9 +563,9 @@ ENDIF
         mov     dx,[bx+cpu_strings-3*2]
         push    dx
         mov     dx,offset cpu_type_msg
-        call    printf
+        call    verbose_print_16
         pop     dx
-        call    printf
+        call    verbose_print_16
         pop     ax
         cmp     ah,5
         jae     no_fpu_det_needed
@@ -501,11 +576,11 @@ ENDIF
         mov     bl,al
         shl     bx,1
         mov     dx,[bx+fpu_strings]
-        call    printf
+        call    verbose_print_16
 
         no_fpu_det_needed:
 	mov		dx,offset cr_lf
-	call	printf
+	call	verbose_print_16
         ; cambiamos el tama¤o del bloque de programa
 	call    init_mem
 
@@ -1191,6 +1266,19 @@ printf  proc
 
 printf  endp
 
+verbose_print_16  proc
+
+	mov     ax,txdata
+	mov     ds,ax
+	cmp		ds:is_verbose,0
+	jz		skip_print
+	mov     ah,9
+	int     21h
+	skip_print:
+	ret
+
+verbose_print_16  endp
+
 ;ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
 
 init_mem        proc
@@ -1354,6 +1442,18 @@ bin_to_dec      proc
 bin_to_dec      endp
 ;ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
 
+verbose_print_32	proc
+		push	ds
+		mov		ds,cs:D16_SEL
+		cmp		is_verbose,0
+		pop		ds
+		jz		vp32_leave
+		mov		ah,9
+		int		21h
+		vp32_leave:
+		ret
+endp
+
 c32_init:
 
 	cli
@@ -1377,8 +1477,7 @@ c32_init:
 
         mov     ds,cs:D16_SEL
         mov     edx,offset sys_type_msg
-        mov     ah,9
-        int     21h
+		call	verbose_print_32
 
         xor     edx,edx
         mov     dl,system_type
@@ -1390,15 +1489,14 @@ c32_init:
         mov     edx,3*2
         no_mires_si_xms:
         mov     dx,word ptr [edx+sys_types]
-        int     21h
+		call	verbose_print_32
 
-		mov		ah,9
 		mov		ds,cs:D16_SEL
 		mov		edx,offset cr_lf
-		int		21h
+		call	verbose_print_32
 		
         mov     edx,offset dos_mem_msg
-        int     21h
+		call	verbose_print_32
 
         test    system_type,2
         jz      normal_init_mem
@@ -1430,12 +1528,11 @@ c32_init:
         add     edi,offset number_string
         call    bin_to_dec
         mov     edx,edi
-        mov     ah,9
-        int     21h
+		call	verbose_print_32
         push    ds
         mov     ds,cs:D16_SEL
         mov     edx,offset extended_mem_msg
-        int     21h
+		call	verbose_print_32
         mov     al,system_type
         pop     ds
         test    al,2
@@ -1463,13 +1560,12 @@ c32_init:
         add     edi,offset number_string
         call    bin_to_dec
         mov     edx,edi
-        mov     ah,9
-        int     21h
-        push    ds
-        mov     ds,cs:D16_SEL
+		call	verbose_print_32
+		push	ds
+		mov		ds,cs:D16_SEL
         mov     edx,offset kb_msg
-        int     21h
-        pop     ds
+		call	verbose_print_32
+		pop		ds
 
         sti
 
